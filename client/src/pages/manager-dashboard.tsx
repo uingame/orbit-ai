@@ -142,9 +142,9 @@ function UnifiedEventView({ eventId, eventName }: { eventId: number; eventName: 
   const { data: slots } = useSlots(eventId);
 
   const { data: allJudges = [] } = useQuery({
-    queryKey: ["/api/judges"],
+    queryKey: ["/api/judges-with-events"],
     queryFn: async () => {
-      const res = await fetch("/api/judges");
+      const res = await fetch("/api/judges-with-events");
       if (!res.ok) throw new Error("Failed to fetch judges");
       return res.json();
     },
@@ -369,6 +369,7 @@ function UnifiedEventView({ eventId, eventName }: { eventId: number; eventName: 
                 <TableHeader className="bg-gradient-to-r from-primary/5 to-primary/0">
                   <TableRow>
                     <TableHead>Judge</TableHead>
+                    <TableHead>Events</TableHead>
                     <TableHead>Progress</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Last Station</TableHead>
@@ -380,6 +381,8 @@ function UnifiedEventView({ eventId, eventName }: { eventId: number; eventName: 
                     const lastSlot = getLastSlotForJudge(judge.id);
                     const lastStation = lastSlot ? stationMap.get(lastSlot.stationId) : null;
                     const progressPct = judge.assigned > 0 ? (judge.completed / judge.assigned) * 100 : 0;
+                    const fullJudge = judgeMap.get(judge.id);
+                    const assignedEvents: { id: number; name: string }[] = (fullJudge as any)?.assignedEvents || [];
 
                     return (
                       <TableRow key={judge.id} data-testid={`judge-row-${judge.id}`}>
@@ -390,6 +393,22 @@ function UnifiedEventView({ eventId, eventName }: { eventId: number; eventName: 
                             </div>
                             {judge.name}
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          {assignedEvents.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {assignedEvents.slice(0, 2).map((event) => (
+                                <Badge key={event.id} variant="outline" className="text-xs bg-blue-500/5 border-blue-500/20 text-blue-500">
+                                  {event.name}
+                                </Badge>
+                              ))}
+                              {assignedEvents.length > 2 && (
+                                <Badge variant="secondary" className="text-xs">+{assignedEvents.length - 2}</Badge>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">—</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2 min-w-[120px]">
@@ -450,6 +469,7 @@ function UnifiedEventView({ eventId, eventName }: { eventId: number; eventName: 
                     <TableHead>Team</TableHead>
                     <TableHead>School</TableHead>
                     <TableHead>City</TableHead>
+                    <TableHead>Country</TableHead>
                     <TableHead className="text-right">Progress</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -465,6 +485,7 @@ function UnifiedEventView({ eventId, eventName }: { eventId: number; eventName: 
                         <TableCell className="font-medium" data-testid={`text-team-name-${team.id}`}>{team.name}</TableCell>
                         <TableCell className="text-muted-foreground">{team.schoolName || "—"}</TableCell>
                         <TableCell className="text-muted-foreground">{team.city || "—"}</TableCell>
+                        <TableCell className="text-muted-foreground">{team.country || "—"}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
                             <Progress value={pct} className="h-1.5 w-20" />

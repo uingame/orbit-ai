@@ -381,6 +381,7 @@ export default function ResultsPage() {
                         <RankingSortHeader column="rank" label="Rank" />
                         <RankingSortHeader column="name" label="Team" />
                         <RankingSortHeader column="school" label="School" />
+                        <TableHead>Country</TableHead>
                         <TableHead>Category</TableHead>
                         <TableHead>Language</TableHead>
                         <RankingSortHeader column="score" label="Score" />
@@ -405,6 +406,7 @@ export default function ResultsPage() {
                             </TableCell>
                             <TableCell className="font-semibold">{team.name}</TableCell>
                             <TableCell className="text-muted-foreground">{team.schoolName}</TableCell>
+                            <TableCell className="text-muted-foreground">{team.country || "—"}</TableCell>
                             <TableCell>
                               <Badge variant="outline" className="text-xs">{team.category}</Badge>
                             </TableCell>

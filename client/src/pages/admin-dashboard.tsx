@@ -77,11 +77,11 @@ function LiveEventMonitor({ eventId, eventName }: { eventId: number, eventName: 
   const { data: stations } = useStations(eventId);
   const { data: slots } = useSlots(eventId);
 
-  // Fetch all judges for the scoring matrix
+  // Fetch all judges with their event assignments
   const { data: allJudges = [] } = useQuery({
-    queryKey: ["/api/judges"],
+    queryKey: ["/api/judges-with-events"],
     queryFn: async () => {
-      const res = await fetch("/api/judges");
+      const res = await fetch("/api/judges-with-events");
       if (!res.ok) throw new Error("Failed to fetch judges");
       return res.json();
     },
@@ -221,6 +221,7 @@ function JudgeNotificationsPanel({
             <TableHeader className="bg-gradient-to-r from-primary/5 to-primary/0">
               <TableRow>
                 <TableHead>Judge</TableHead>
+                <TableHead>Events</TableHead>
                 <TableHead>Phone</TableHead>
                 <TableHead>Last Station</TableHead>
                 <TableHead>Time</TableHead>
@@ -230,6 +231,7 @@ function JudgeNotificationsPanel({
             <TableBody>
               {activeJudges.map(judge => {
                 const lastSlot = getLastSlotForJudge(judge.id);
+                const assignedEvents: { id: number; name: string }[] = (judge as any).assignedEvents || [];
                 return (
                   <TableRow key={judge.id} data-testid={`judge-notification-row-${judge.id}`}>
                     <TableCell className="font-medium">
@@ -239,6 +241,22 @@ function JudgeNotificationsPanel({
                         </div>
                         {judge.username}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {assignedEvents.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {assignedEvents.slice(0, 2).map((event) => (
+                            <Badge key={event.id} variant="outline" className="text-xs bg-blue-500/5 border-blue-500/20 text-blue-500">
+                              {event.name}
+                            </Badge>
+                          ))}
+                          {assignedEvents.length > 2 && (
+                            <Badge variant="secondary" className="text-xs">+{assignedEvents.length - 2}</Badge>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       {judge.phone ? (
