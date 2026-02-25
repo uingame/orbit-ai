@@ -12,28 +12,30 @@ Node.js:
 במהלך ההתקנה לחץ Next על הכל. ההתקנה כוללת את npm.
 חשוב: אם VS Code היה פתוח, סגור ופתח אותו מחדש לאחר ההתקנה.
 
-PostgreSQL:
+PostgreSQL:  https://www.enterprisedb.com/downloads/postgres-postgresql-downloads
 הורד והתקן את מסד הנתונים. זכור את הסיסמה שהגדרת למשתמש postgres.
 
-pgAdmin:
+pgAdmin:  https://www.postgresql.org/ftp/pgadmin/pgadmin4/v9.12/windows/
 כלי ניהול גרפי (מותקן בדרך כלל יחד עם PostgreSQL).
 שלב 1: הגדרת מסד הנתונים (Database)
 פתח את pgAdmin.
 אם השרת המקומי לא מופיע ב-Servers בצד שמאל:
 קליק ימני על Servers -> Register -> Server.
-בלשונית General: תן שם (למשל Local Server).
+בלשונית General:
+ תן שם (למשל Local Server).
 בלשונית Connection:
 Host: localhost | Port: 5432 | Username: postgres
-Password: 1234
+Password: 1234 + save Password -> on
 לחץ על Save.
 צור את מסד הנתונים: קליק ימני על התיקייה Databases -> Create -> Database.
 בשדה השם הקלד בדיוק: orbitAidb.
 לחץ על Save.
 
-שלב 2: הגדרת משתני סביבה (.env)
-צור קובץ חדש בשם .env בתיקיית השורש של הפרויקט.
-העתק והדבק לתוכו את הערכים הבאים (עדכן את הסיסמה ב-DATABASE_URL במקום 1234):
-
+התקנת הספריות והרצה
+ודא שאתה נמצא בטרמינל בנתיב של הפרויקט שלך (C:\projects\orbit_ai).
+הקלד את הפקודה הבאה והקש Enter: npm install
+תן לתהליך להסתיים. הפקודה הזו תעבור על קובץ ההגדרות של הפרויקט, תוריד את כל החבילות החסרות (כולל tsx) ותיצור תיקייה בשם node_modules.
+ברגע שההתקנה מסתיימת, הרץ  את הפקודה: npm run db:push
 
 ## 2. כניסה לא ראשונית (הפעלה שוטפת)
 אם כבר ביצעת את ההתקנה הראשונית בעבר והכל מוגדר על המחשב שלך, דלג לכאן:
