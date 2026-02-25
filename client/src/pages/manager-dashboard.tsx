@@ -7,7 +7,9 @@ import { useSlots } from "@/hooks/use-slots";
 import { api } from "@shared/routes";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "wouter";
-import { Calendar, AlertCircle, Edit2, Clock, MessageSquare, Send, User, Loader2, MapPin, Users, Star, School } from "lucide-react";
+import { Calendar, AlertCircle, Edit2, Clock, MessageSquare, Send, User, Loader2, MapPin, Users, Star, School, Phone, CheckCircle } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -363,65 +365,71 @@ function UnifiedEventView({ eventId, eventName }: { eventId: number; eventName: 
             {judgeStatus.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-2">No judges assigned to this event yet.</p>
             ) : (
-              <div className="space-y-2">
-                {judgeStatus.map((judge) => {
-                  const lastSlot = getLastSlotForJudge(judge.id);
-                  const lastStation = lastSlot ? stationMap.get(lastSlot.stationId) : null;
-                  const progressPct = judge.assigned > 0 ? (judge.completed / judge.assigned) * 100 : 0;
+              <Table>
+                <TableHeader className="bg-gradient-to-r from-primary/5 to-primary/0">
+                  <TableRow>
+                    <TableHead>Judge</TableHead>
+                    <TableHead>Progress</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Last Station</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {judgeStatus.map((judge) => {
+                    const lastSlot = getLastSlotForJudge(judge.id);
+                    const lastStation = lastSlot ? stationMap.get(lastSlot.stationId) : null;
+                    const progressPct = judge.assigned > 0 ? (judge.completed / judge.assigned) * 100 : 0;
 
-                  return (
-                    <div
-                      key={judge.id}
-                      className="flex items-center justify-between p-3 rounded-md border gap-3"
-                      data-testid={`judge-row-${judge.id}`}
-                    >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                          <User className="h-4 w-4 text-primary" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="font-medium text-sm truncate">{judge.name}</p>
-                            {judge.isBehind ? (
-                              <Badge variant="destructive" className="text-xs gap-1">
-                                <AlertCircle className="w-3 h-3" />
-                                Behind
-                              </Badge>
-                            ) : judge.completed === judge.assigned && judge.assigned > 0 ? (
-                              <Badge variant="default" className="text-xs">Done</Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-xs">
-                                {judge.completed}/{judge.assigned}
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-3 mt-1">
-                            <div className="flex-1 max-w-[120px] bg-muted rounded-full h-1.5">
-                              <div
-                                className="bg-primary h-1.5 rounded-full transition-all"
-                                style={{ width: `${progressPct}%` }}
-                              />
+                    return (
+                      <TableRow key={judge.id} data-testid={`judge-row-${judge.id}`}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                              <User className="h-3.5 w-3.5 text-primary" />
                             </div>
-                            {lastStation && (
-                              <span className="text-xs text-muted-foreground truncate">
-                                Last: {lastStation.name}
-                              </span>
-                            )}
+                            {judge.name}
                           </div>
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleNotify(judgeMap.get(judge.id) || judge)}
-                        data-testid={`button-notify-judge-${judge.id}`}
-                      >
-                        <MessageSquare className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2 min-w-[120px]">
+                            <Progress value={progressPct} className="h-1.5 flex-1" />
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                              {judge.completed}/{judge.assigned}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {judge.isBehind ? (
+                            <Badge variant="destructive" className="text-xs gap-1">
+                              <AlertCircle className="w-3 h-3" />Behind
+                            </Badge>
+                          ) : judge.completed === judge.assigned && judge.assigned > 0 ? (
+                            <Badge variant="default" className="text-xs gap-1">
+                              <CheckCircle className="w-3 h-3" />Done
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs">In Progress</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {lastStation ? lastStation.name : "—"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleNotify(judgeMap.get(judge.id) || judge)}
+                            data-testid={`button-notify-judge-${judge.id}`}
+                          >
+                            <MessageSquare className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             )}
           </div>
 
@@ -436,30 +444,38 @@ function UnifiedEventView({ eventId, eventName }: { eventId: number; eventName: 
             {teamList.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-2">No teams registered for this event.</p>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {teamList.map((team: any) => {
-                  const teamSlots = slotList.filter((s: any) => s.teamId === team.id);
-                  const teamScored = teamSlots.filter((s: any) =>
-                    scoreList.some((sc: any) => sc.slotId === s.id)
-                  ).length;
-                  return (
-                    <div
-                      key={team.id}
-                      className="p-3 rounded-md border flex items-start justify-between gap-2"
-                      data-testid={`team-card-${team.id}`}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-sm truncate" data-testid={`text-team-name-${team.id}`}>{team.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{team.schoolName}</p>
-                        {team.city && <p className="text-xs text-muted-foreground truncate">{team.city}</p>}
-                      </div>
-                      <Badge variant="outline" className="text-xs shrink-0">
-                        {teamScored}/{teamSlots.length}
-                      </Badge>
-                    </div>
-                  );
-                })}
-              </div>
+              <Table>
+                <TableHeader className="bg-gradient-to-r from-primary/5 to-primary/0">
+                  <TableRow>
+                    <TableHead>Team</TableHead>
+                    <TableHead>School</TableHead>
+                    <TableHead>City</TableHead>
+                    <TableHead className="text-right">Progress</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {teamList.map((team: any) => {
+                    const teamSlots = slotList.filter((s: any) => s.teamId === team.id);
+                    const teamScored = teamSlots.filter((s: any) =>
+                      scoreList.some((sc: any) => sc.slotId === s.id)
+                    ).length;
+                    const pct = teamSlots.length > 0 ? (teamScored / teamSlots.length) * 100 : 0;
+                    return (
+                      <TableRow key={team.id} data-testid={`team-card-${team.id}`}>
+                        <TableCell className="font-medium" data-testid={`text-team-name-${team.id}`}>{team.name}</TableCell>
+                        <TableCell className="text-muted-foreground">{team.schoolName || "—"}</TableCell>
+                        <TableCell className="text-muted-foreground">{team.city || "—"}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Progress value={pct} className="h-1.5 w-20" />
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">{teamScored}/{teamSlots.length}</span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             )}
           </div>
 
@@ -478,63 +494,62 @@ function UnifiedEventView({ eventId, eventName }: { eventId: number; eventName: 
                 <p className="text-sm text-muted-foreground">No time slots have been created for this event.</p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {Array.from(slotsByTime.entries()).map(([time, timeSlots]) => (
-                  <div key={time} data-testid={`timeline-group-${time}`}>
-                    <div className="flex items-center gap-3 mb-2">
-                      <Badge variant="outline" className="font-mono text-sm">
-                        {time}
-                      </Badge>
-                      <div className="flex-1 h-px bg-border" />
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pl-4">
-                      {timeSlots.map((slot: any) => {
-                        const team = teamMap.get(slot.teamId);
-                        const station = stationMap.get(slot.stationId);
-                        const slotJudges = (slot.judgeIds || []).map((id: number) => judgeMap.get(id)).filter(Boolean);
-                        const isScored = scoreList.some((sc) => sc.slotId === slot.id);
-                        const colorClass = getStationColor(slot.stationId);
+              <Table>
+                <TableHeader className="bg-gradient-to-r from-primary/5 to-primary/0">
+                  <TableRow>
+                    <TableHead>Time</TableHead>
+                    <TableHead>Team</TableHead>
+                    <TableHead>School</TableHead>
+                    <TableHead>Station</TableHead>
+                    <TableHead>Judges</TableHead>
+                    <TableHead className="text-right">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Array.from(slotsByTime.entries()).flatMap(([time, timeSlots]) =>
+                    timeSlots.map((slot: any) => {
+                      const team = teamMap.get(slot.teamId);
+                      const station = stationMap.get(slot.stationId);
+                      const slotJudges = (slot.judgeIds || []).map((id: number) => judgeMap.get(id)).filter(Boolean);
+                      const isScored = scoreList.some((sc) => sc.slotId === slot.id);
 
-                        return (
-                          <div
-                            key={slot.id}
-                            className={`p-3 rounded-md border ${colorClass} ${isScored ? "opacity-60" : ""}`}
-                            data-testid={`slot-card-${slot.id}`}
-                          >
-                            <div className="flex items-start justify-between gap-2 mb-2">
-                              <div className="min-w-0 flex-1">
-                                <p className="font-medium text-sm truncate" data-testid={`slot-team-${slot.id}`}>
-                                  {team?.name || "Unknown Team"}
-                                </p>
-                                <p className="text-xs text-muted-foreground truncate">
-                                  {team?.schoolName}
-                                </p>
-                              </div>
-                              {isScored ? (
-                                <Badge variant="default" className="text-xs shrink-0">Scored</Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-xs shrink-0">{slot.status || "Pending"}</Badge>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1 mb-1">
+                      return (
+                        <TableRow key={slot.id} data-testid={`slot-card-${slot.id}`} className={isScored ? "opacity-60" : ""}>
+                          <TableCell className="font-mono text-sm text-muted-foreground whitespace-nowrap">{time}</TableCell>
+                          <TableCell className="font-medium" data-testid={`slot-team-${slot.id}`}>
+                            {team?.name || "Unknown Team"}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-sm">{team?.schoolName || "—"}</TableCell>
+                          <TableCell className="text-sm">
+                            <div className="flex items-center gap-1">
                               <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
-                              <span className="text-xs truncate">{station?.name || "Unknown Station"}</span>
+                              {station?.name || "—"}
                             </div>
-                            {slotJudges.length > 0 && (
-                              <div className="flex items-center gap-1 flex-wrap">
-                                <User className="h-3 w-3 text-muted-foreground shrink-0" />
+                          </TableCell>
+                          <TableCell>
+                            {slotJudges.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
                                 {slotJudges.map((j: any) => (
-                                  <span key={j.id} className="text-xs">{j.name || j.username}</span>
+                                  <Badge key={j.id} variant="secondary" className="text-xs">{j.name || j.username}</Badge>
                                 ))}
                               </div>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">—</span>
                             )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {isScored ? (
+                              <Badge variant="default" className="text-xs">Scored</Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-xs">{slot.status || "Pending"}</Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
             )}
           </div>
         </CardContent>

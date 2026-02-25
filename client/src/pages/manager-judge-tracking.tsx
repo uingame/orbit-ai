@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle, Clock, AlertCircle, Users, Calendar, MapPin, User as UserIcon } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { User, Team, ScheduleSlot, Station, Event, Score } from "@shared/schema";
 import { api } from "@shared/routes";
 
@@ -229,22 +230,32 @@ export default function ManagerJudgeTracking() {
                   <p>No slots scheduled for this event yet.</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {slotDetails.map(({ slot, team, station, assignedJudges, judgesScored, judgesNotScored, scoringStatus }) => (
-                    <div
-                      key={slot.id}
-                      className={`rounded-md border p-4 ${
-                        slot.status === "behind"
-                          ? "border-red-300 dark:border-red-800 bg-red-500/5"
-                          : scoringStatus === "complete"
-                          ? "border-green-300 dark:border-green-800 bg-green-500/5"
-                          : "border-border"
-                      }`}
-                      data-testid={`slot-card-${slot.id}`}
-                    >
-                      <div className="flex flex-col md:flex-row md:items-center gap-3">
-                        <div className="flex items-center gap-3 md:min-w-44 shrink-0">
-                          <div className={`h-9 w-9 rounded-md flex items-center justify-center shrink-0 ${
+                <Table>
+                  <TableHeader className="bg-gradient-to-r from-primary/5 to-primary/0">
+                    <TableRow>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Time</TableHead>
+                      <TableHead>Team</TableHead>
+                      <TableHead>Station</TableHead>
+                      <TableHead>Judges — Scored</TableHead>
+                      <TableHead>Judges — Pending</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {slotDetails.map(({ slot, team, station, assignedJudges, judgesScored, judgesNotScored, scoringStatus }) => (
+                      <TableRow
+                        key={slot.id}
+                        data-testid={`slot-card-${slot.id}`}
+                        className={
+                          slot.status === "behind"
+                            ? "bg-red-500/5"
+                            : scoringStatus === "complete"
+                            ? "bg-green-500/5"
+                            : ""
+                        }
+                      >
+                        <TableCell>
+                          <div className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ${
                             scoringStatus === "complete"
                               ? "bg-green-500/15 text-green-600 dark:text-green-400"
                               : scoringStatus === "partial"
@@ -254,60 +265,51 @@ export default function ManagerJudgeTracking() {
                               : "bg-muted text-muted-foreground"
                           }`}>
                             {scoringStatus === "complete" ? (
-                              <CheckCircle className="h-4 w-4" />
+                              <><CheckCircle className="h-3 w-3" />Complete</>
                             ) : slot.status === "behind" ? (
-                              <AlertCircle className="h-4 w-4" />
+                              <><AlertCircle className="h-3 w-3" />Behind</>
+                            ) : scoringStatus === "partial" ? (
+                              <><Clock className="h-3 w-3" />Partial</>
                             ) : (
-                              <Clock className="h-4 w-4" />
+                              <><Clock className="h-3 w-3" />Pending</>
                             )}
                           </div>
-                          <div>
-                            <div className="font-medium text-sm" data-testid={`slot-time-${slot.id}`}>
-                              {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
-                            </div>
-                            {slot.status === "behind" && (
-                              <Badge variant="destructive" className="text-xs mt-0.5">Behind</Badge>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="h-px md:h-8 md:w-px bg-border shrink-0" />
-
-                        <div className="flex items-center gap-2 md:min-w-40 shrink-0">
-                          <Users className="h-4 w-4 text-muted-foreground shrink-0" />
-                          <span className="text-sm font-medium truncate" data-testid={`slot-team-${slot.id}`}>
-                            {team?.name || "Unknown Team"}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2 md:min-w-36 shrink-0">
-                          <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
-                          <span className="text-sm text-muted-foreground truncate" data-testid={`slot-station-${slot.id}`}>
-                            {station?.name || "Unknown Station"}
-                          </span>
-                        </div>
-
-                        <div className="h-px md:h-8 md:w-px bg-border shrink-0" />
-
-                        <div className="flex-1 min-w-0">
-                          {assignedJudges.length === 0 ? (
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-amber-600 dark:text-amber-400 border-amber-400 dark:border-amber-600 text-xs">
-                                No judges assigned
-                              </Badge>
-                            </div>
+                        </TableCell>
+                        <TableCell className="font-mono text-sm text-muted-foreground whitespace-nowrap" data-testid={`slot-time-${slot.id}`}>
+                          {formatTime(slot.startTime)}–{formatTime(slot.endTime)}
+                        </TableCell>
+                        <TableCell className="font-medium" data-testid={`slot-team-${slot.id}`}>
+                          {team?.name || "Unknown Team"}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground" data-testid={`slot-station-${slot.id}`}>
+                          {station?.name || "Unknown Station"}
+                        </TableCell>
+                        <TableCell>
+                          {judgesScored.length === 0 ? (
+                            <span className="text-muted-foreground text-xs">—</span>
                           ) : (
-                            <div className="flex flex-wrap gap-1.5">
+                            <div className="flex flex-wrap gap-1">
                               {judgesScored.map((judge) => (
                                 <Badge
                                   key={judge.id}
                                   className="bg-green-500/10 text-green-700 dark:text-green-400 border-green-300 dark:border-green-700 text-xs"
                                   data-testid={`judge-scored-${judge.id}-slot-${slot.id}`}
                                 >
-                                  <CheckCircle className="h-3 w-3 mr-1" />
-                                  {judge.name}
+                                  <CheckCircle className="h-3 w-3 mr-1" />{judge.name}
                                 </Badge>
                               ))}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {assignedJudges.length === 0 ? (
+                            <Badge variant="outline" className="text-amber-600 dark:text-amber-400 border-amber-400 dark:border-amber-600 text-xs">
+                              No judges assigned
+                            </Badge>
+                          ) : judgesNotScored.length === 0 ? (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          ) : (
+                            <div className="flex flex-wrap gap-1">
                               {judgesNotScored.map((judge) => (
                                 <Badge
                                   key={judge.id}
@@ -315,17 +317,16 @@ export default function ManagerJudgeTracking() {
                                   className="text-xs"
                                   data-testid={`judge-pending-${judge.id}-slot-${slot.id}`}
                                 >
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  {judge.name}
+                                  <Clock className="h-3 w-3 mr-1" />{judge.name}
                                 </Badge>
                               ))}
                             </div>
                           )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>

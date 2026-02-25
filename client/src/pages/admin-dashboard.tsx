@@ -6,7 +6,8 @@ import { useSlots } from "@/hooks/use-slots";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link } from "wouter";
-import { Plus, ArrowRight, Activity, Calendar, Bell, MessageSquare, Send, User, Loader2 } from "lucide-react";
+import { Plus, ArrowRight, Activity, Calendar, Bell, MessageSquare, Send, User, Loader2, Phone } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { motion } from "framer-motion";
@@ -216,83 +217,101 @@ function JudgeNotificationsPanel({
         {activeJudges.length === 0 ? (
           <p className="text-muted-foreground text-center py-6">No active judges found</p>
         ) : (
-          <div className="space-y-3">
-            {activeJudges.map(judge => {
-              const lastSlot = getLastSlotForJudge(judge.id);
-              return (
-                <div
-                  key={judge.id}
-                  className="flex items-center justify-between p-4 rounded-lg border bg-card/50"
-                  data-testid={`judge-notification-row-${judge.id}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                      <User className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium">{judge.username}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {judge.phone || "No phone"}
-                      </p>
-                      {lastSlot && (
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="outline" className="text-xs">
-                            Last: {getStationName(lastSlot.stationId)}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(lastSlot.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
+          <Table>
+            <TableHeader className="bg-gradient-to-r from-primary/5 to-primary/0">
+              <TableRow>
+                <TableHead>Judge</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>Last Station</TableHead>
+                <TableHead>Time</TableHead>
+                <TableHead className="text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {activeJudges.map(judge => {
+                const lastSlot = getLastSlotForJudge(judge.id);
+                return (
+                  <TableRow key={judge.id} data-testid={`judge-notification-row-${judge.id}`}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                          <User className="h-3.5 w-3.5 text-primary" />
                         </div>
-                      )}
-                    </div>
-                  </div>
-                  <Dialog open={dialogOpen && selectedJudge?.id === judge.id} onOpenChange={(open) => {
-                    if (!open) setDialogOpen(false);
-                  }}>
-                    <DialogTrigger asChild>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleNotify(judge)}
-                        data-testid={`button-notify-judge-${judge.id}`}
-                      >
-                        <MessageSquare className="h-4 w-4 mr-1" /> Notify
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent aria-describedby={undefined}>
-                      <DialogHeader>
-                        <DialogTitle>Send Notification to {judge.username}</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4 pt-4">
-                        <div>
-                          <Label>Phone Number</Label>
-                          <Input value={judge.phone || "Not set"} disabled className="bg-muted" />
-                        </div>
-                        <div>
-                          <Label>Message</Label>
-                          <Input 
-                            value={message}
-                            onChange={(e) => setMessage(e.target.value)}
-                            placeholder="Enter your message"
-                            data-testid="input-notification-message"
-                          />
-                        </div>
-                        <Button 
-                          onClick={handleSend}
-                          disabled={!message.trim() || sendNotificationMutation.isPending}
-                          className="w-full"
-                          data-testid="button-send-notification"
-                        >
-                          {sendNotificationMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-                          {sendNotificationMutation.isPending ? "Sending..." : "Send Notification"}
-                        </Button>
+                        {judge.username}
                       </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              );
-            })}
-          </div>
+                    </TableCell>
+                    <TableCell>
+                      {judge.phone ? (
+                        <span className="flex items-center gap-1 text-sm font-mono text-muted-foreground">
+                          <Phone className="h-3.5 w-3.5" />
+                          {judge.phone}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground italic text-sm">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {lastSlot ? (
+                        <Badge variant="outline" className="text-xs">{getStationName(lastSlot.stationId)}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {lastSlot
+                        ? new Date(lastSlot.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Dialog open={dialogOpen && selectedJudge?.id === judge.id} onOpenChange={(open) => {
+                        if (!open) setDialogOpen(false);
+                      }}>
+                        <DialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleNotify(judge)}
+                            data-testid={`button-notify-judge-${judge.id}`}
+                          >
+                            <MessageSquare className="h-4 w-4 mr-1" /> Notify
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent aria-describedby={undefined}>
+                          <DialogHeader>
+                            <DialogTitle>Send Notification to {judge.username}</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4 pt-4">
+                            <div>
+                              <Label>Phone Number</Label>
+                              <Input value={judge.phone || "Not set"} disabled className="bg-muted" />
+                            </div>
+                            <div>
+                              <Label>Message</Label>
+                              <Input
+                                value={message}
+                                onChange={(e) => setMessage(e.target.value)}
+                                placeholder="Enter your message"
+                                data-testid="input-notification-message"
+                              />
+                            </div>
+                            <Button
+                              onClick={handleSend}
+                              disabled={!message.trim() || sendNotificationMutation.isPending}
+                              className="w-full"
+                              data-testid="button-send-notification"
+                            >
+                              {sendNotificationMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+                              {sendNotificationMutation.isPending ? "Sending..." : "Send Notification"}
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         )}
       </CardContent>
     </Card>

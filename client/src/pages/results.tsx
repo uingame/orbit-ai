@@ -434,27 +434,40 @@ export default function ResultsPage() {
                   Station Awards
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {stationWinners.map(({ station, winnerTeam, bestScore }) => (
-                    <div
-                      key={station.id}
-                      className="p-4 rounded-lg border bg-card/50"
-                      data-testid={`station-winner-${station.id}`}
-                    >
-                      <h4 className="font-semibold text-white mb-2">{station.name}</h4>
-                      {winnerTeam ? (
-                        <div className="flex items-center gap-2">
-                          <Trophy className="h-4 w-4 text-yellow-500" />
-                          <span className="text-sm">{winnerTeam.name}</span>
-                          <Badge variant="outline" className="text-xs ml-auto">{bestScore} pts</Badge>
-                        </div>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">No scores yet</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader className="bg-gradient-to-r from-primary/5 to-primary/0">
+                    <TableRow>
+                      <TableHead>Station</TableHead>
+                      <TableHead>Winner</TableHead>
+                      <TableHead className="text-right">Score</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {stationWinners.map(({ station, winnerTeam, bestScore }) => (
+                      <TableRow key={station.id} data-testid={`station-winner-${station.id}`}>
+                        <TableCell className="font-semibold">{station.name}</TableCell>
+                        <TableCell>
+                          {winnerTeam ? (
+                            <div className="flex items-center gap-2">
+                              <Trophy className="h-4 w-4 text-yellow-500 shrink-0" />
+                              <span className="text-sm">{winnerTeam.name}</span>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground italic">No scores yet</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {winnerTeam ? (
+                            <Badge variant="outline" className="text-xs">{bestScore} pts</Badge>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           )}

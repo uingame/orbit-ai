@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Clock, MapPin, Bot, Bell, Check, ChevronDown, Send, Loader2 } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
@@ -207,41 +208,49 @@ function JudgeEventView({ event, userId }: { event: Event, userId: number }) {
               Your Schedule Overview
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {sortedSlots.map((slot, idx) => {
-                const team = teams?.find(t => t.id === slot.teamId);
-                const station = stations?.find(s => s.id === slot.stationId);
-                const existingScore = scores?.find(s => s.slotId === slot.id);
-                const isComplete = !!existingScore;
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader className="bg-gradient-to-r from-primary/5 to-primary/0">
+                <TableRow>
+                  <TableHead className="w-10 text-center">#</TableHead>
+                  <TableHead>Team</TableHead>
+                  <TableHead>Station</TableHead>
+                  <TableHead>Time</TableHead>
+                  <TableHead className="text-right">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedSlots.map((slot, idx) => {
+                  const team = teams?.find(t => t.id === slot.teamId);
+                  const station = stations?.find(s => s.id === slot.stationId);
+                  const existingScore = scores?.find(s => s.slotId === slot.id);
+                  const isComplete = !!existingScore;
 
-                return (
-                  <div key={slot.id} className="flex items-start gap-3 p-3 rounded-md bg-muted/50 border border-border hover:border-foreground/20 transition-colors">
-                    <div className="flex-shrink-0 w-10 h-10 rounded-md bg-foreground text-background flex items-center justify-center font-bold">
-                      {idx + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <p className="font-semibold truncate">{team?.name}</p>
+                  return (
+                    <TableRow key={slot.id}>
+                      <TableCell className="text-center font-bold text-muted-foreground">{idx + 1}</TableCell>
+                      <TableCell className="font-semibold">{team?.name ?? "—"}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <MapPin className="w-3 h-3 shrink-0" />
+                          {station?.name ?? "—"}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground font-mono">
+                        {format(new Date(slot.startTime), "HH:mm")}–{format(new Date(slot.endTime), "HH:mm")}
+                      </TableCell>
+                      <TableCell className="text-right">
                         {isComplete ? (
-                          <Badge className="bg-green-100 text-green-700 border-green-200 text-xs flex-shrink-0">Done</Badge>
+                          <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">Done</Badge>
                         ) : (
-                          <Badge variant="secondary" className="text-xs flex-shrink-0">Pending</Badge>
+                          <Badge variant="secondary" className="text-xs">Pending</Badge>
                         )}
-                      </div>
-                      <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                        <MapPin className="w-3 h-3" />
-                        {station?.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {format(new Date(slot.startTime), "HH:mm")} - {format(new Date(slot.endTime), "HH:mm")}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       )}

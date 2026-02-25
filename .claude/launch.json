@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "OrbitAI Dev Server",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--env-file=.env", "--import", "tsx", "server/index.ts"],
+      "env": {"NODE_ENV": "development"},
+      "port": 5000
+    }
+  ]
+}
