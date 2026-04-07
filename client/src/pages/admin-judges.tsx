@@ -273,7 +273,7 @@ export default function AdminJudges() {
                                 <Badge
                                   key={event.id}
                                   variant="outline"
-                                  className="text-xs bg-blue/5 text-blue-700 dark:text-blue-300 border-blue/30"
+                                  className="text-xs bg-blue/5 text-white dark:text-blue-300 border-blue/30"
                                 >
                                   <Calendar className="h-3 w-3 mr-1" />
                                   {event.name}
