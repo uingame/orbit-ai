@@ -20,4 +20,7 @@ export default defineConfig({
   dbCredentials: {
     url: databaseUrl,
   },
+  extensionsFilters: ["postgis"],
+  schemaFilter: ["public"],
+  tablesFilter: ["!pg_stat_statements", "!pg_stat_statements_info"],
 });
