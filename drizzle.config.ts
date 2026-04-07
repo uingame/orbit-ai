@@ -4,14 +4,16 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL, ensure the database is provisioned");
 }
 
-const isProduction = process.env.NODE_ENV === "production";
+const databaseUrl = process.env.DATABASE_URL;
+const isLocalDb =
+  databaseUrl.includes("localhost") || databaseUrl.includes("127.0.0.1");
 
 export default defineConfig({
   out: "./migrations",
   schema: "./shared/schema.ts",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL,
-    ssl: isProduction ? { rejectUnauthorized: false } : false,
+    url: databaseUrl,
+    ssl: isLocalDb ? false : { rejectUnauthorized: false },
   },
 });
