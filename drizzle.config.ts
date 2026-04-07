@@ -4,9 +4,14 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL, ensure the database is provisioned");
 }
 
-const databaseUrl = process.env.DATABASE_URL;
+const rawUrl = process.env.DATABASE_URL;
 const isLocalDb =
-  databaseUrl.includes("localhost") || databaseUrl.includes("127.0.0.1");
+  rawUrl.includes("localhost") || rawUrl.includes("127.0.0.1");
+
+const databaseUrl =
+  isLocalDb || rawUrl.includes("sslmode=")
+    ? rawUrl
+    : rawUrl + (rawUrl.includes("?") ? "&" : "?") + "sslmode=no-verify";
 
 export default defineConfig({
   out: "./migrations",
@@ -14,6 +19,5 @@ export default defineConfig({
   dialect: "postgresql",
   dbCredentials: {
     url: databaseUrl,
-    ssl: isLocalDb ? false : { rejectUnauthorized: false },
   },
 });
