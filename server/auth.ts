@@ -7,6 +7,7 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User } from "@shared/schema";
+import { authStorage } from "./replit_integrations/auth/storage";
 
 const scryptAsync = promisify(scrypt);
 
@@ -82,11 +83,33 @@ export function setupAuth(app: Express) {
     });
   });
 
-  app.get("/api/user", (req, res) => {
-    if (req.isAuthenticated()) {
-      res.json(req.user);
-    } else {
+  app.get("/api/user", async (req, res) => {
+    if (!req.isAuthenticated()) {
       res.sendStatus(401);
+      return;
     }
+
+    const sessionUser = req.user as any;
+
+    // Google OAuth user - has claims object but no direct role.
+    // Look up the linked app user from the oauth_accounts table.
+    if (sessionUser?.claims?.sub) {
+      try {
+        const appUser = await authStorage.getLinkedAppUser(sessionUser.claims.sub);
+        if (!appUser) {
+          res.status(401).json({ message: "Linked account not found" });
+          return;
+        }
+        res.json(appUser);
+        return;
+      } catch (error: any) {
+        console.error("[Auth] Failed to resolve OAuth user:", error);
+        res.status(500).json({ message: "Failed to resolve user" });
+        return;
+      }
+    }
+
+    // Local username/password user - return as-is
+    res.json(sessionUser);
   });
 }
