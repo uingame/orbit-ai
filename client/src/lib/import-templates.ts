@@ -11,10 +11,11 @@ export const importTemplates = {
   judges: {
     filename: "judges-template.xlsx",
     sheetName: "Judges",
-    headers: ["name", "username", "phone", "languages", "restrictions"],
+    headers: ["name", "username", "email", "phone", "languages", "restrictions"],
     example: {
       name: "John Smith",
       username: "john.smith",
+      email: "john.smith@example.com",
       phone: "+1234567890",
       languages: "English;Hebrew",
       restrictions: "",

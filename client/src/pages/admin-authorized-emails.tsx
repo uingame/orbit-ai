@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Plus, Trash2, Mail, Shield, Users, UserCog, Search, ArrowUpDown, Calendar, Download } from "lucide-react";
+import { Plus, Trash2, Mail, Shield, Users, UserCog, Search, ArrowUpDown, Calendar, Download, Send } from "lucide-react";
 import { exportToCSV } from "@/lib/export-csv";
 import { formatDateIL } from "@/lib/format-date";
 
@@ -76,6 +76,19 @@ export default function AdminAuthorizedEmails() {
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to remove email", variant: "destructive" });
+    },
+  });
+
+  const resendMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/authorized-emails/${id}/resend`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Invitation Sent", description: "The invitation email has been resent." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to send", description: error.message || "Could not resend invitation", variant: "destructive" });
     },
   });
 
@@ -384,20 +397,33 @@ export default function AdminAuthorizedEmails() {
                         </TableCell>
                       )}
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            if (confirm(`Remove ${item.email} from authorized list?`)) {
-                              deleteMutation.mutate(item.id);
-                            }
-                          }}
-                          disabled={deleteMutation.isPending}
-                          data-testid={`button-delete-${item.id}`}
-                          className="hover:text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => resendMutation.mutate(item.id)}
+                            disabled={resendMutation.isPending}
+                            data-testid={`button-resend-${item.id}`}
+                            className="hover:text-primary"
+                            title="Resend invitation email"
+                          >
+                            <Send className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              if (confirm(`Remove ${item.email} from authorized list?`)) {
+                                deleteMutation.mutate(item.id);
+                              }
+                            }}
+                            disabled={deleteMutation.isPending}
+                            data-testid={`button-delete-${item.id}`}
+                            className="hover:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

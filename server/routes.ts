@@ -5,6 +5,7 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import { setupAuth } from "./auth";
 import { setupAuth as setupReplitAuth, registerAuthRoutes } from "./replit_integrations/auth";
+import { sendInvitationEmail } from "./email";
 import { registerChatRoutes } from "./replit_integrations/chat";
 import { registerImageRoutes } from "./replit_integrations/image";
 
@@ -580,14 +581,18 @@ export async function registerRoutes(
       res.status(400).json({ message: "Maximum 100 judges per import" });
       return;
     }
+    const inviterUser = req.user as any;
     const created = [];
     const errors = [];
+    let emailsSent = 0;
+    let emailsFailed = 0;
     for (const row of data) {
       try {
         if (!row.name || !row.username) {
           errors.push({ row, error: "Missing required fields: name and username" });
           continue;
         }
+        const normalizedEmail = row.email ? String(row.email).toLowerCase().trim() : null;
         const existing = await storage.getUserByUsername(row.username);
         if (existing) {
           errors.push({ row, error: `Username "${row.username}" already exists` });
@@ -598,16 +603,50 @@ export async function registerRoutes(
           password: row.password || "password",
           role: "judge",
           name: row.name,
+          email: normalizedEmail,
           phone: row.phone || null,
           languages: row.languages && typeof row.languages === 'string' ? row.languages.split(";").map((l: string) => l.trim()) : ["English"],
           restrictions: row.restrictions || null,
         });
         created.push(judge);
+
+        // If email was provided, also create authorized_email entry and send invitation
+        if (normalizedEmail) {
+          try {
+            const existingAuth = await storage.getAuthorizedEmailByEmail(normalizedEmail);
+            if (!existingAuth) {
+              await storage.createAuthorizedEmail({
+                email: normalizedEmail,
+                role: "judge",
+                name: row.name,
+                createdBy: inviterUser.id,
+              });
+            }
+            const result = await sendInvitationEmail({
+              to: normalizedEmail,
+              recipientName: row.name,
+              role: "judge",
+              inviterName: inviterUser.name,
+            });
+            if (result.ok) emailsSent++;
+            else emailsFailed++;
+          } catch (emailErr: any) {
+            console.error(`[Import] Failed to send invitation to ${normalizedEmail}:`, emailErr);
+            emailsFailed++;
+          }
+        }
       } catch (error: any) {
         errors.push({ row, error: error.message });
       }
     }
-    res.status(201).json({ imported: created.length, errors: errors.length, judges: created, errorDetails: errors });
+    res.status(201).json({
+      imported: created.length,
+      errors: errors.length,
+      emailsSent,
+      emailsFailed,
+      judges: created,
+      errorDetails: errors,
+    });
   });
 
   // === AI Feedback Assistant ===
@@ -962,9 +1001,56 @@ Always be encouraging and focus on growth areas rather than criticism.`;
         name,
         createdBy: userId,
       });
-      res.status(201).json(authorizedEmail);
+
+      // Fire-and-collect: send invitation email (don't fail the request if email fails)
+      const inviter = req.user as any;
+      const emailResult = await sendInvitationEmail({
+        to: authorizedEmail.email,
+        recipientName: name,
+        role: role as "admin" | "manager" | "judge",
+        inviterName: inviter?.name,
+      });
+
+      res.status(201).json({ ...authorizedEmail, emailSent: emailResult.ok, emailError: emailResult.error });
     } catch (error: any) {
       res.status(400).json({ message: error.message || "Failed to add authorized email" });
+    }
+  });
+
+  app.post("/api/authorized-emails/:id/resend", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+    const userRole = (req.user as any).role;
+    if (userRole !== "admin" && userRole !== "manager") {
+      res.status(403).json({ message: "Forbidden" });
+      return;
+    }
+
+    const target = await storage.getAuthorizedEmailById(req.params.id);
+    if (!target) {
+      res.status(404).json({ message: "Not found" });
+      return;
+    }
+
+    if (userRole === "manager" && target.role !== "judge") {
+      res.status(403).json({ message: "Managers can only resend judge invitations" });
+      return;
+    }
+
+    const inviter = req.user as any;
+    const result = await sendInvitationEmail({
+      to: target.email,
+      recipientName: target.name,
+      role: target.role as "admin" | "manager" | "judge",
+      inviterName: inviter?.name,
+    });
+
+    if (result.ok) {
+      res.json({ success: true, message: "Invitation resent" });
+    } else {
+      res.status(500).json({ success: false, message: result.error || "Failed to send invitation" });
     }
   });
 

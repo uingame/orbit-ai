@@ -526,7 +526,7 @@ function JudgesTab({ eventId, event, judges }: { eventId: number; event: Event; 
             <div className="flex items-center gap-2">
               <ImportFileButton
                 template={importTemplates.judges}
-                requiredColumns={["name", "username"]}
+                requiredColumns={["name", "username", "email"]}
                 onParsed={(rows) => importMutation.mutate(rows)}
                 disabled={importMutation.isPending}
                 testIdPrefix="import-judges-file"
@@ -542,7 +542,7 @@ function JudgesTab({ eventId, event, judges }: { eventId: number; event: Event; 
             </div>
           </CardTitle>
           <CardDescription>
-            Import judges from an Excel/CSV file or paste CSV text. Required columns: name, username. Optional: phone, languages (semicolon-separated), restrictions
+            Import judges from an Excel/CSV file or paste CSV text. Required columns: name, username, email. Optional: phone, languages (semicolon-separated), restrictions. An invitation email will be sent to each judge automatically.
           </CardDescription>
         </CardHeader>
         {showImport && (
@@ -552,7 +552,7 @@ function JudgesTab({ eventId, event, judges }: { eventId: number; event: Event; 
                 className="w-full h-32 p-2 border rounded-md bg-background text-foreground font-mono text-sm"
                 value={csvText}
                 onChange={(e) => setCsvText(e.target.value)}
-                placeholder={"name,username,phone,languages,restrictions\nJohn Smith,john.smith,+1234567890,English;Hebrew,\nSarah Cohen,sarah.cohen,+0987654321,English;Arabic,Cannot judge on weekends"}
+                placeholder={"name,username,email,phone,languages,restrictions\nJohn Smith,john.smith,john@example.com,+1234567890,English;Hebrew,\nSarah Cohen,sarah.cohen,sarah@example.com,+0987654321,English;Arabic,Cannot judge on weekends"}
                 data-testid="textarea-import-judges"
               />
               <div className="flex gap-2">

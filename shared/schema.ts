@@ -14,6 +14,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   role: text("role").notNull().default("judge"), // "admin", "manager" or "judge"
   name: text("name").notNull(),
+  email: text("email"), // Optional email address (used for Google login + invitations)
   phone: text("phone"),
   languages: text("languages").array(), // ["English", "Hebrew", "Arabic"]
   avatarUrl: text("avatar_url"),
