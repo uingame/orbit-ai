@@ -2,11 +2,29 @@ import { Resend } from "resend";
 
 type Role = "admin" | "manager" | "judge";
 
+interface EventSummary {
+  name: string;
+  date: Date | string | null;
+  location?: string | null;
+}
+
 interface InvitationParams {
   to: string;
   recipientName?: string | null;
   role: Role;
   inviterName?: string | null;
+  events?: EventSummary[];
+}
+
+function formatEventDate(date: Date | string | null): string {
+  if (!date) return "";
+  const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("he-IL", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 }
 
 const ROLE_LABELS_HE: Record<Role, string> = {
@@ -45,8 +63,9 @@ function buildHtml(params: {
   inviterName: string;
   appUrl: string;
   email: string;
+  events: EventSummary[];
 }): string {
-  const { recipientName, role, inviterName, appUrl, email } = params;
+  const { recipientName, role, inviterName, appUrl, email, events } = params;
   const roleHe = ROLE_LABELS_HE[role];
   const roleEn = ROLE_LABELS_EN[role];
   const descHe = ROLE_DESCRIPTIONS_HE[role];
@@ -88,6 +107,25 @@ function buildHtml(params: {
               <p style="margin:0 0 24px 0;font-size:15px;line-height:1.7;color:#94a3b8;">
                 ${descHe}
               </p>
+              ${events.length > 0 ? `
+              <div style="margin:0 0 24px 0;">
+                <p style="margin:0 0 10px 0;color:#cbd5e1;font-weight:600;font-size:14px;">
+                  📅 שובצת לאירועים הבאים:
+                </p>
+                <div style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.25);border-radius:10px;padding:12px 16px;">
+                  ${events
+                    .map(
+                      (e) => `
+                  <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                    <div style="color:#ffffff;font-weight:600;font-size:15px;">${escapeHtml(e.name)}</div>
+                    <div style="color:#94a3b8;font-size:13px;margin-top:2px;">
+                      ${formatEventDate(e.date)}${e.location ? ` · ${escapeHtml(e.location)}` : ""}
+                    </div>
+                  </div>`,
+                    )
+                    .join("")}
+                </div>
+              </div>` : ""}
             </td>
           </tr>
 
@@ -136,6 +174,25 @@ function buildHtml(params: {
               <p style="margin:0 0 20px 0;font-size:14px;line-height:1.7;color:#94a3b8;">
                 ${descEn}
               </p>
+              ${events.length > 0 ? `
+              <div style="margin:0 0 20px 0;">
+                <p style="margin:0 0 10px 0;color:#cbd5e1;font-weight:600;font-size:13px;">
+                  📅 You've been assigned to the following events:
+                </p>
+                <div style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.25);border-radius:10px;padding:10px 14px;">
+                  ${events
+                    .map(
+                      (e) => `
+                  <div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                    <div style="color:#ffffff;font-weight:600;font-size:14px;">${escapeHtml(e.name)}</div>
+                    <div style="color:#94a3b8;font-size:12px;margin-top:2px;">
+                      ${formatEventDate(e.date)}${e.location ? ` · ${escapeHtml(e.location)}` : ""}
+                    </div>
+                  </div>`,
+                    )
+                    .join("")}
+                </div>
+              </div>` : ""}
               <p style="margin:0 0 8px 0;color:#cbd5e1;font-size:13px;">
                 <strong>How to sign in:</strong> Click the button above and choose "Sign in with Google" using this email address.
               </p>
@@ -168,15 +225,27 @@ function buildText(params: {
   inviterName: string;
   appUrl: string;
   email: string;
+  events: EventSummary[];
 }): string {
   const roleHe = ROLE_LABELS_HE[params.role];
   const roleEn = ROLE_LABELS_EN[params.role];
+  const eventsHe = params.events.length
+    ? `\n📅 שובצת לאירועים הבאים:\n${params.events
+        .map((e) => `  - ${e.name} (${formatEventDate(e.date)}${e.location ? `, ${e.location}` : ""})`)
+        .join("\n")}\n`
+    : "";
+  const eventsEn = params.events.length
+    ? `\n📅 You've been assigned to the following events:\n${params.events
+        .map((e) => `  - ${e.name} (${formatEventDate(e.date)}${e.location ? `, ${e.location}` : ""})`)
+        .join("\n")}\n`
+    : "";
+
   return `שלום ${params.recipientName},
 
 הוזמנת על ידי ${params.inviterName} להצטרף ל-Orbit AI בתפקיד: ${roleHe}.
 
 ${ROLE_DESCRIPTIONS_HE[params.role]}
-
+${eventsHe}
 כדי להתחבר:
 1. לך אל: ${params.appUrl}/login
 2. לחץ "Sign in with Google"
@@ -189,7 +258,7 @@ Hello ${params.recipientName},
 You've been invited by ${params.inviterName} to join Orbit AI as: ${roleEn}.
 
 ${ROLE_DESCRIPTIONS_EN[params.role]}
-
+${eventsEn}
 To sign in:
 1. Go to: ${params.appUrl}/login
 2. Click "Sign in with Google"
@@ -240,12 +309,15 @@ export async function sendInvitationEmail(
         ? `הוזמנת להיות מנהל אירוע ב-Orbit AI · You've been invited as Event Manager`
         : `הוזמנת להיות שופט ב-Orbit AI · You've been invited as Judge`;
 
+  const eventsList = params.events || [];
+
   const html = buildHtml({
     recipientName,
     role: params.role,
     inviterName,
     appUrl,
     email: params.to,
+    events: eventsList,
   });
 
   const text = buildText({
@@ -254,6 +326,7 @@ export async function sendInvitationEmail(
     inviterName,
     appUrl,
     email: params.to,
+    events: eventsList,
   });
 
   try {

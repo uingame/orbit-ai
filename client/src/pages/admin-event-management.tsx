@@ -22,10 +22,12 @@ import { exportToCSV } from "@/lib/export-csv";
 import { ImportFileButton } from "@/components/import-file-button";
 import { importTemplates } from "@/lib/import-templates";
 import { useToast } from "@/hooks/use-toast";
+import { useAdminEvent } from "@/contexts/admin-event-context";
+import { Link } from "wouter";
 import type { Event, Team, Station, ScheduleSlot, User as UserType } from "@shared/schema";
 
 export default function AdminEventManagement() {
-  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const { selectedEventId } = useAdminEvent();
   const queryClientHook = useQueryClient();
 
   const { data: events = [], isLoading: eventsLoading } = useQuery<Event[]>({
@@ -79,23 +81,15 @@ export default function AdminEventManagement() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-2xl font-bold">Event Management</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Event Management</h1>
+          {selectedEvent && (
+            <p className="text-sm text-muted-foreground mt-1">
+              Managing: <span className="font-medium text-foreground">{selectedEvent.name}</span>
+            </p>
+          )}
+        </div>
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-          <Select
-            value={selectedEventId?.toString() || ""}
-            onValueChange={(v) => setSelectedEventId(v ? Number(v) : null)}
-          >
-            <SelectTrigger className="w-full sm:w-64" data-testid="select-event">
-              <SelectValue placeholder="Select an event to manage" />
-            </SelectTrigger>
-            <SelectContent>
-              {events.map(event => (
-                <SelectItem key={event.id} value={event.id.toString()}>
-                  {event.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           <CreateEventDialog managers={managers} />
         </div>
       </div>
@@ -104,7 +98,14 @@ export default function AdminEventManagement() {
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             <Calendar className="mx-auto h-12 w-12 mb-4 opacity-50" />
-            <p>Select an event above to manage its teams, stations, judges, and slots.</p>
+            <p className="mb-4">
+              No event selected. Choose an event from the <strong>Dashboard</strong> to manage its teams, stations, judges, and slots.
+            </p>
+            <Link href="/admin/dashboard">
+              <Button variant="outline">
+                <Calendar className="h-4 w-4 mr-2" /> Go to Dashboard
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       ) : (

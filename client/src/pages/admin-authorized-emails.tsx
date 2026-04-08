@@ -4,21 +4,25 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Plus, Trash2, Mail, Shield, Users, UserCog, Search, ArrowUpDown, Calendar, Download, Send } from "lucide-react";
+import { Plus, Trash2, Mail, Shield, Users, UserCog, Search, ArrowUpDown, Calendar, Download, Send, AlertCircle } from "lucide-react";
 import { exportToCSV } from "@/lib/export-csv";
 import { formatDateIL } from "@/lib/format-date";
+import { findEventConflicts } from "@shared/event-conflicts";
+import type { Event } from "@shared/schema";
 
 interface AuthorizedEmail {
   id: string;
   email: string;
   role: string;
   name: string | null;
+  eventIds: number[] | null;
   createdAt: string | null;
   createdBy: number | null;
 }
@@ -33,10 +37,16 @@ export default function AdminAuthorizedEmails() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortColumn, setSortColumn] = useState<SortColumn>("email");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    email: string;
+    role: string;
+    name: string;
+    eventIds: number[];
+  }>({
     email: "",
     role: "judge",
     name: "",
+    eventIds: [],
   });
 
   const { data: user } = useQuery<{ role: string }>({
@@ -51,20 +61,41 @@ export default function AdminAuthorizedEmails() {
     enabled: isAdmin || isManager,
   });
 
+  // Fetch events so we can show them in the multi-select
+  const { data: events = [] } = useQuery<Event[]>({
+    queryKey: ["/api/events"],
+    enabled: isAdmin || isManager,
+  });
+
+  // Compute conflicts in the current form selection
+  const currentConflicts = useMemo(
+    () => findEventConflicts(formData.eventIds, events),
+    [formData.eventIds, events]
+  );
+
   const createMutation = useMutation({
-    mutationFn: async (data: { email: string; role: string; name?: string }) => {
+    mutationFn: async (data: { email: string; role: string; name?: string; eventIds: number[] }) => {
       return apiRequest("POST", "/api/authorized-emails", data);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/authorized-emails"] });
       toast({ title: "Email Added", description: "The email has been added to the authorized list." });
       setDialogOpen(false);
-      setFormData({ email: "", role: "judge", name: "" });
+      setFormData({ email: "", role: "judge", name: "", eventIds: [] });
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to add email", variant: "destructive" });
     },
   });
+
+  const toggleEventId = (eventId: number) => {
+    setFormData(prev => ({
+      ...prev,
+      eventIds: prev.eventIds.includes(eventId)
+        ? prev.eventIds.filter(id => id !== eventId)
+        : [...prev.eventIds, eventId],
+    }));
+  };
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -97,10 +128,19 @@ export default function AdminAuthorizedEmails() {
       toast({ title: "Error", description: "Email is required", variant: "destructive" });
       return;
     }
+    if (formData.role !== "admin" && currentConflicts.length > 0) {
+      toast({
+        title: "Event date conflict",
+        description: "Some selected events share the same day. Please resolve before continuing.",
+        variant: "destructive",
+      });
+      return;
+    }
     createMutation.mutate({
       email: formData.email.trim(),
       role: formData.role,
       name: formData.name.trim() || undefined,
+      eventIds: formData.role === "admin" ? [] : formData.eventIds,
     });
   };
 
@@ -254,7 +294,7 @@ export default function AdminAuthorizedEmails() {
                 <Label htmlFor="role">Role</Label>
                 <Select
                   value={formData.role}
-                  onValueChange={(value) => setFormData({ ...formData, role: value })}
+                  onValueChange={(value) => setFormData({ ...formData, role: value, eventIds: value === "admin" ? [] : formData.eventIds })}
                 >
                   <SelectTrigger data-testid="select-role">
                     <SelectValue placeholder="Select role" />
@@ -266,12 +306,66 @@ export default function AdminAuthorizedEmails() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Event assignment - only for judge/manager */}
+              {formData.role !== "admin" && (
+                <div className="space-y-2">
+                  <Label>Assign to Events</Label>
+                  <p className="text-xs text-muted-foreground">
+                    The user will be assigned to the selected events after signing in. Events on the same day conflict with each other.
+                  </p>
+                  {events.length === 0 ? (
+                    <p className="text-sm text-muted-foreground italic">No events available yet.</p>
+                  ) : (
+                    <div className="border rounded-md max-h-48 overflow-y-auto divide-y">
+                      {events.map(event => {
+                        const isSelected = formData.eventIds.includes(event.id);
+                        const isConflicting = currentConflicts.some(c => c.eventIds.includes(event.id));
+                        return (
+                          <label
+                            key={event.id}
+                            className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/50 transition-colors ${
+                              isConflicting && isSelected ? "bg-destructive/10" : ""
+                            }`}
+                            data-testid={`event-option-${event.id}`}
+                          >
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleEventId(event.id)}
+                              data-testid={`checkbox-event-${event.id}`}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-sm truncate">{event.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {event.date ? formatDateIL(event.date) : "No date"}
+                                {event.location ? ` · ${event.location}` : ""}
+                              </div>
+                            </div>
+                            {isConflicting && isSelected && (
+                              <AlertCircle className="w-4 h-4 text-destructive shrink-0" />
+                            )}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {currentConflicts.length > 0 && (
+                    <div className="flex items-start gap-2 p-2 rounded-md bg-destructive/10 border border-destructive/30 text-destructive text-xs">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium">Date conflict detected</p>
+                        <p className="opacity-90">Some of your selected events share the same day. Remove the duplicates before continuing.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-              <Button 
-                onClick={handleSubmit} 
-                disabled={createMutation.isPending}
+              <Button
+                onClick={handleSubmit}
+                disabled={createMutation.isPending || (formData.role !== "admin" && currentConflicts.length > 0)}
                 data-testid="button-submit-email"
               >
                 {createMutation.isPending ? "Adding..." : "Add Email"}

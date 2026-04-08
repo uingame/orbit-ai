@@ -6,9 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trophy, Medal, Award, Download, Filter, FileText, Printer, Search, ArrowUpDown } from "lucide-react";
+import { Trophy, Medal, Award, Download, Filter, FileText, Printer, Search, ArrowUpDown, Calendar } from "lucide-react";
 import { exportToCSV } from "@/lib/export-csv";
 import { useAuth } from "@/hooks/use-auth";
+import { useOptionalAdminEvent } from "@/contexts/admin-event-context";
+import { Link } from "wouter";
 import type { Event, Team, Score, Station } from "@shared/schema";
 
 type SortColumn = "rank" | "name" | "school" | "score";
@@ -16,13 +18,23 @@ type SortOrder = "asc" | "desc";
 
 export default function ResultsPage() {
   const { user } = useAuth();
-  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const adminEventContext = useOptionalAdminEvent();
+  const isAdmin = user?.role === "admin";
+  const [localSelectedEventId, setLocalSelectedEventId] = useState<number | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [rankingSearchTerm, setRankingSearchTerm] = useState("");
   const [rankingSortColumn, setRankingSortColumn] = useState<SortColumn>("rank");
   const [rankingSortOrder, setRankingSortOrder] = useState<SortOrder>("asc");
 
   const isJudge = user?.role === "judge";
+
+  // Admin uses the shared context; other roles use local state
+  const selectedEventId = isAdmin && adminEventContext
+    ? adminEventContext.selectedEventId
+    : localSelectedEventId;
+  const setSelectedEventId = isAdmin && adminEventContext
+    ? adminEventContext.setSelectedEventId
+    : setLocalSelectedEventId;
 
   // For judges, use judge-scoped events; for others, use all events
   const { data: events = [] } = useQuery<Event[]>({
@@ -34,12 +46,13 @@ export default function ResultsPage() {
     },
   });
 
-  // Auto-select first event when events load
+  // Auto-select first event when events load (only for non-admin roles)
   useEffect(() => {
+    if (isAdmin) return;
     if (events.length > 0 && !selectedEventId) {
       setSelectedEventId(events[0].id);
     }
-  }, [events, selectedEventId]);
+  }, [events, selectedEventId, isAdmin, setSelectedEventId]);
 
   // For judges, use judge-scoped teams; for others, use all teams
   const { data: teams = [] } = useQuery<Team[]>({
@@ -304,23 +317,35 @@ export default function ResultsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-4">
-          <div className="w-64">
-            <Select
-              value={selectedEventId?.toString() || ""}
-              onValueChange={(val) => setSelectedEventId(Number(val))}
-            >
-              <SelectTrigger data-testid="select-event">
-                <SelectValue placeholder="Select Event" />
-              </SelectTrigger>
-              <SelectContent>
-                {events.map(event => (
-                  <SelectItem key={event.id} value={event.id.toString()}>
-                    {event.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {!isAdmin && (
+            <div className="w-64">
+              <Select
+                value={selectedEventId?.toString() || ""}
+                onValueChange={(val) => setSelectedEventId(Number(val))}
+              >
+                <SelectTrigger data-testid="select-event">
+                  <SelectValue placeholder="Select Event" />
+                </SelectTrigger>
+                <SelectContent>
+                  {events.map(event => (
+                    <SelectItem key={event.id} value={event.id.toString()}>
+                      {event.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {isAdmin && selectedEventId && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Calendar className="h-4 w-4" />
+              Event:{" "}
+              <span className="font-medium text-foreground">
+                {events.find(e => e.id === selectedEventId)?.name || "—"}
+              </span>
+            </div>
+          )}
 
           {selectedEventId && categories.length > 0 && (
             <div className="w-64">
@@ -345,7 +370,18 @@ export default function ResultsPage() {
           <div className="flex flex-col items-center gap-4">
             <Trophy className="h-16 w-16 text-muted-foreground" />
             <h3 className="text-xl font-bold">Select an Event</h3>
-            <p className="text-muted-foreground">Choose an event to view the competition results</p>
+            <p className="text-muted-foreground">
+              {isAdmin
+                ? "Choose an event from the Dashboard to view the competition results."
+                : "Choose an event to view the competition results"}
+            </p>
+            {isAdmin && (
+              <Link href="/admin/dashboard">
+                <Button variant="outline">
+                  <Calendar className="h-4 w-4 mr-2" /> Go to Dashboard
+                </Button>
+              </Link>
+            )}
           </div>
         </Card>
       ) : (

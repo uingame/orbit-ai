@@ -36,6 +36,7 @@ export const authorizedEmails = pgTable("authorized_emails", {
   email: varchar("email").notNull().unique(),
   role: varchar("role").notNull(), // "admin", "manager", or "judge"
   name: varchar("name"), // Optional display name
+  eventIds: integer("event_ids").array(), // Events this user should be assigned to after sign-up
   createdAt: timestamp("created_at").defaultNow(),
   createdBy: integer("created_by"), // User ID who added this email
 });

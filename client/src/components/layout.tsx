@@ -11,6 +11,7 @@ import { LogOut, User as UserIcon, Calendar, Rocket, BarChart3, Menu, Users, Cli
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
 import { ManagerEventProvider } from "@/contexts/manager-event-context";
+import { AdminEventProvider } from "@/contexts/admin-event-context";
 import { StarsBackground } from "@/components/stars-background";
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -150,6 +151,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <main className="flex-1 container mx-auto px-4 py-8">
         {user.role === 'manager' ? (
           <ManagerEventProvider>{children}</ManagerEventProvider>
+        ) : user.role === 'admin' ? (
+          <AdminEventProvider>{children}</AdminEventProvider>
         ) : (
           children
         )}

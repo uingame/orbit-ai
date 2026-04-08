@@ -6,6 +6,7 @@ import { z } from "zod";
 import { setupAuth } from "./auth";
 import { setupAuth as setupReplitAuth, registerAuthRoutes } from "./replit_integrations/auth";
 import { sendInvitationEmail } from "./email";
+import { findEventConflicts, formatConflictError } from "@shared/event-conflicts";
 import { registerChatRoutes } from "./replit_integrations/chat";
 import { registerImageRoutes } from "./replit_integrations/image";
 
@@ -973,34 +974,66 @@ Always be encouraging and focus on growth areas rather than criticism.`;
     }
     const userRole = (req.user as any).role;
     const userId = (req.user as any).id;
-    const { email, role, name } = req.body;
-    
+    const { email, role, name, eventIds } = req.body;
+
     // Validate role is one of allowed values
     const allowedRoles = ["admin", "manager", "judge"];
     if (!allowedRoles.includes(role)) {
       res.status(400).json({ message: "Invalid role. Must be admin, manager, or judge" });
       return;
     }
-    
+
     // Only admins and managers can access this endpoint
     if (userRole !== "admin" && userRole !== "manager") {
       res.status(403).json({ message: "Forbidden" });
       return;
     }
-    
+
     // Managers can only add judges - strict server-side enforcement
     if (userRole === "manager" && role !== "judge") {
       res.status(403).json({ message: "Managers can only add judges" });
       return;
     }
-    
+
+    // Validate eventIds - must be an array of numbers
+    const normalizedEventIds: number[] = Array.isArray(eventIds)
+      ? eventIds.map((id: any) => Number(id)).filter((id: number) => Number.isFinite(id))
+      : [];
+
+    // Check for date conflicts among selected events
+    if (normalizedEventIds.length > 1) {
+      const allEvents = await storage.getEvents();
+      const conflicts = findEventConflicts(normalizedEventIds, allEvents);
+      if (conflicts.length > 0) {
+        res.status(400).json({
+          message: formatConflictError(conflicts, allEvents),
+          conflicts,
+        });
+        return;
+      }
+    }
+
+    // Admin role cannot be scoped to specific events
+    if (role === "admin" && normalizedEventIds.length > 0) {
+      res.status(400).json({
+        message: "Admins have access to all events - event assignment is not applicable",
+      });
+      return;
+    }
+
     try {
       const authorizedEmail = await storage.createAuthorizedEmail({
         email: email.toLowerCase().trim(),
         role,
         name,
+        eventIds: normalizedEventIds.length > 0 ? normalizedEventIds : null,
         createdBy: userId,
       });
+
+      // Fetch event details for the email (if any events were assigned)
+      const assignedEvents = normalizedEventIds.length > 0
+        ? (await storage.getEvents()).filter(e => normalizedEventIds.includes(e.id))
+        : [];
 
       // Fire-and-collect: send invitation email (don't fail the request if email fails)
       const inviter = req.user as any;
@@ -1009,6 +1042,7 @@ Always be encouraging and focus on growth areas rather than criticism.`;
         recipientName: name,
         role: role as "admin" | "manager" | "judge",
         inviterName: inviter?.name,
+        events: assignedEvents.map(e => ({ name: e.name, date: e.date, location: e.location })),
       });
 
       res.status(201).json({ ...authorizedEmail, emailSent: emailResult.ok, emailError: emailResult.error });
@@ -1040,11 +1074,15 @@ Always be encouraging and focus on growth areas rather than criticism.`;
     }
 
     const inviter = req.user as any;
+    const assignedEvents = target.eventIds && target.eventIds.length > 0
+      ? (await storage.getEvents()).filter(e => target.eventIds!.includes(e.id))
+      : [];
     const result = await sendInvitationEmail({
       to: target.email,
       recipientName: target.name,
       role: target.role as "admin" | "manager" | "judge",
       inviterName: inviter?.name,
+      events: assignedEvents.map(e => ({ name: e.name, date: e.date, location: e.location })),
     });
 
     if (result.ok) {
