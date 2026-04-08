@@ -1005,6 +1005,18 @@ Always be encouraging and focus on growth areas rather than criticism.`;
 }
 
 async function seedDatabase() {
+  // Ensure admin user exists (even if events already exist)
+  const existingAdmin = await storage.getUserByUsername("admin");
+  if (!existingAdmin) {
+    await storage.createUser({
+      username: "admin",
+      password: "password",
+      role: "admin",
+      name: "System Admin",
+      languages: ["English"],
+    });
+  }
+
   // Ensure manager user exists (even if events already exist)
   const existingManager = await storage.getUserByUsername("manager");
   if (!existingManager) {
