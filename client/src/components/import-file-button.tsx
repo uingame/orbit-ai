@@ -99,7 +99,7 @@ export function ImportFileButton({
 
   return (
     <>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <input
           ref={inputRef}
           type="file"
@@ -117,7 +117,8 @@ export function ImportFileButton({
           data-testid={`${testIdPrefix}-button`}
         >
           <FileSpreadsheet className="h-4 w-4 mr-1" />
-          {isParsing ? "Reading..." : "Upload Excel/CSV"}
+          <span className="hidden sm:inline">{isParsing ? "Reading..." : "Upload Excel/CSV"}</span>
+          <span className="sm:hidden">{isParsing ? "..." : "Upload"}</span>
         </Button>
         <Button
           type="button"

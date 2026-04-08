@@ -12,13 +12,10 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Replit Auth (Google/social login) - only enable when we have the
-  // required configuration (the `REPL_ID`/issuer settings are normally
-  // provided by the Replit environment).  This avoids installing a second
-  // session middleware during local development, which previously caused
-  // cookies to be marked `secure` even over HTTP and resulted in perpetual
-  // 401s after login.
-  if (process.env.REPL_ID) {
+  // Google OAuth - only enable when we have the required configuration.
+  // This avoids installing a second session middleware during local
+  // development when Google credentials aren't set.
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     await setupReplitAuth(app);
     registerAuthRoutes(app);
   }

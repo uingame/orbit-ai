@@ -78,14 +78,14 @@ export default function AdminEventManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-bold">Event Management</h1>
-        <div className="flex items-center gap-4">
-          <Select 
-            value={selectedEventId?.toString() || ""} 
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+          <Select
+            value={selectedEventId?.toString() || ""}
             onValueChange={(v) => setSelectedEventId(v ? Number(v) : null)}
           >
-            <SelectTrigger className="w-64" data-testid="select-event">
+            <SelectTrigger className="w-full sm:w-64" data-testid="select-event">
               <SelectValue placeholder="Select an event to manage" />
             </SelectTrigger>
             <SelectContent>
@@ -109,7 +109,7 @@ export default function AdminEventManagement() {
         </Card>
       ) : (
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5 gap-1">
+          <TabsList className="grid w-full grid-cols-5 gap-1 h-auto text-xs sm:text-sm">
             <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
             <TabsTrigger value="judges" data-testid="tab-judges">Judges</TabsTrigger>
             <TabsTrigger value="teams" data-testid="tab-teams">Teams</TabsTrigger>
@@ -302,7 +302,7 @@ function EventOverviewTab({ event, managers }: { event: Event; managers: UserTyp
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center justify-between gap-4">
+        <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           Event Details
           <div className="flex flex-wrap gap-2">
             <Button 
@@ -393,7 +393,7 @@ function EventOverviewTab({ event, managers }: { event: Event; managers: UserTyp
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-muted-foreground" />
                 <div>
@@ -518,7 +518,7 @@ function JudgesTab({ eventId, event, judges }: { eventId: number; event: Event; 
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center justify-between gap-4">
+          <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
             <div className="flex items-center gap-2">
               <Upload className="h-5 w-5" />
               Import Judges
@@ -587,7 +587,7 @@ function JudgesTab({ eventId, event, judges }: { eventId: number; event: Event; 
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center justify-between gap-4">
+          <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
             <div className="flex items-center gap-2">
               <User className="h-5 w-5" />
               Assign Judges to Event
@@ -774,7 +774,7 @@ function TeamsTab({ eventId, teams }: { eventId: number; teams: Team[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center justify-between gap-4">
+        <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-2">
             <GraduationCap className="h-5 w-5" />
             Teams ({teams.length})
@@ -821,7 +821,7 @@ function TeamsTab({ eventId, teams }: { eventId: number; teams: Team[] }) {
 
         {showCreate && (
           <div className="mb-4 p-4 border rounded-md space-y-3 bg-muted/50">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label>Team Name</Label>
                 <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Apollo Juniors" data-testid="input-team-name" />
@@ -1051,7 +1051,7 @@ function StationsTab({ eventId, stations }: { eventId: number; stations: Station
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center justify-between gap-4">
+        <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-2">
             <Building className="h-5 w-5" />
             Stations ({stations.length})
@@ -1411,7 +1411,7 @@ function ScheduleTab({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center justify-between gap-4">
+        <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
             Slots ({slots.length})
@@ -1469,7 +1469,7 @@ function ScheduleTab({
 
         {showCreate && (
           <div className="mb-4 p-4 border rounded-md space-y-3 bg-muted/50">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label>Team</Label>
                 <Select value={teamId?.toString() || ""} onValueChange={(v) => setTeamId(Number(v))}>
