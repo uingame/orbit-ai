@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Users, CheckCircle, Clock, AlertCircle, XCircle, Plus, Upload, Download, Pencil, Trash2, Loader2, Search, ArrowUpDown } from "lucide-react";
 import { exportToCSV } from "@/lib/export-csv";
+import { ImportFileButton } from "@/components/import-file-button";
+import { importTemplates } from "@/lib/import-templates";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { Team, ScheduleSlot, Station, Event, Score } from "@shared/schema";
@@ -452,11 +454,19 @@ export default function ManagerTeamTracking() {
             </DialogContent>
           </Dialog>
 
+          <ImportFileButton
+            template={importTemplates.teams}
+            requiredColumns={["name", "schoolName", "category", "language"]}
+            onParsed={(rows) => importMutation.mutate(rows)}
+            disabled={importMutation.isPending}
+            testIdPrefix="import-teams-file"
+          />
+
           <Dialog open={showImport} onOpenChange={setShowImport}>
             <DialogTrigger asChild>
               <Button variant="outline" data-testid="button-import-teams">
                 <Upload className="h-4 w-4 mr-2" />
-                Import CSV
+                Paste CSV
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl">

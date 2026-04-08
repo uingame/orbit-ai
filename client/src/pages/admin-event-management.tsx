@@ -19,6 +19,8 @@ import { format } from "date-fns";
 import { formatDateIL, formatDateTimeIL } from "@/lib/format-date";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { exportToCSV } from "@/lib/export-csv";
+import { ImportFileButton } from "@/components/import-file-button";
+import { importTemplates } from "@/lib/import-templates";
 import { useToast } from "@/hooks/use-toast";
 import type { Event, Team, Station, ScheduleSlot, User as UserType } from "@shared/schema";
 
@@ -521,17 +523,26 @@ function JudgesTab({ eventId, event, judges }: { eventId: number; event: Event; 
               <Upload className="h-5 w-5" />
               Import Judges
             </div>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => { setShowImport(!showImport); setImportResult(null); }}
-              data-testid="button-import-judges"
-            >
-              <Upload className="h-4 w-4 mr-1" /> Import CSV
-            </Button>
+            <div className="flex items-center gap-2">
+              <ImportFileButton
+                template={importTemplates.judges}
+                requiredColumns={["name", "username"]}
+                onParsed={(rows) => importMutation.mutate(rows)}
+                disabled={importMutation.isPending}
+                testIdPrefix="import-judges-file"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setShowImport(!showImport); setImportResult(null); }}
+                data-testid="button-import-judges"
+              >
+                <Upload className="h-4 w-4 mr-1" /> Paste CSV
+              </Button>
+            </div>
           </CardTitle>
           <CardDescription>
-            Import judges from a CSV file. Format: name, username, phone, languages (semicolon-separated), restrictions
+            Import judges from an Excel/CSV file or paste CSV text. Required columns: name, username. Optional: phone, languages (semicolon-separated), restrictions
           </CardDescription>
         </CardHeader>
         {showImport && (
@@ -772,8 +783,15 @@ function TeamsTab({ eventId, teams }: { eventId: number; teams: Team[] }) {
             <Button variant="outline" size="sm" onClick={handleExport} data-testid="button-export-teams">
               <Download className="h-4 w-4 mr-1" /> Export
             </Button>
+            <ImportFileButton
+              template={importTemplates.teams}
+              requiredColumns={["name", "schoolName", "category", "language"]}
+              onParsed={(rows) => importMutation.mutate(rows)}
+              disabled={importMutation.isPending}
+              testIdPrefix="import-teams-file"
+            />
             <Button variant="outline" size="sm" onClick={() => setShowImport(!showImport)} data-testid="button-import-teams">
-              <Upload className="h-4 w-4 mr-1" /> Import
+              <Upload className="h-4 w-4 mr-1" /> Paste CSV
             </Button>
             <Button onClick={() => setShowCreate(true)} data-testid="button-add-team">
               <Plus className="h-4 w-4 mr-1" /> Add Team
@@ -1042,8 +1060,15 @@ function StationsTab({ eventId, stations }: { eventId: number; stations: Station
             <Button variant="outline" size="sm" onClick={handleExport} data-testid="button-export-stations">
               <Download className="h-4 w-4 mr-1" /> Export
             </Button>
+            <ImportFileButton
+              template={importTemplates.stations}
+              requiredColumns={["name", "rubric"]}
+              onParsed={(rows) => importMutation.mutate(rows)}
+              disabled={importMutation.isPending}
+              testIdPrefix="import-stations-file"
+            />
             <Button variant="outline" size="sm" onClick={() => setShowImport(!showImport)} data-testid="button-import-stations">
-              <Upload className="h-4 w-4 mr-1" /> Import
+              <Upload className="h-4 w-4 mr-1" /> Paste CSV
             </Button>
             <Button onClick={() => setShowCreate(true)} data-testid="button-add-station">
               <Plus className="h-4 w-4 mr-1" /> Add Station
