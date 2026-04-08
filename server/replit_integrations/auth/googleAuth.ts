@@ -98,8 +98,9 @@ export async function setupAuth(app: Express) {
     )
   );
 
-  passport.serializeUser((user: Express.User, cb) => cb(null, user));
-  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+  // Note: serializeUser / deserializeUser are registered in ../../auth.ts
+  // (which always runs) so that req.user is always the actual app user row
+  // for both Google OAuth and local username/password login paths.
 
   app.get(
     "/api/login",
