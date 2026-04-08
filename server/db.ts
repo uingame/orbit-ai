@@ -10,9 +10,14 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-const databaseUrl = process.env.DATABASE_URL;
+const rawUrl = process.env.DATABASE_URL;
 const isLocalDb =
-  databaseUrl.includes("localhost") || databaseUrl.includes("127.0.0.1");
+  rawUrl.includes("localhost") || rawUrl.includes("127.0.0.1");
+
+const databaseUrl =
+  isLocalDb || rawUrl.includes("sslmode=")
+    ? rawUrl
+    : rawUrl + (rawUrl.includes("?") ? "&" : "?") + "sslmode=no-verify";
 
 export const pool = new Pool({
   connectionString: databaseUrl,
