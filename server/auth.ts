@@ -7,6 +7,7 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User } from "@shared/schema";
+import { authStorage } from "./replit_integrations/auth/storage";
 
 const scryptAsync = promisify(scrypt);
 
@@ -55,13 +56,50 @@ export function setupAuth(app: Express) {
     }),
   );
 
-  passport.serializeUser((user, done) => {
-    done(null, (user as User).id);
+  // Unified serialize/deserialize that handles BOTH Google OAuth users and
+  // local username/password users. This ensures req.user is always the
+  // actual app user row (with id, role, name, etc) for every request.
+  passport.serializeUser((user: any, done) => {
+    if (user?.claims?.sub) {
+      return done(null, { type: "oauth", sub: user.claims.sub });
+    }
+    if (typeof user?.id === "number") {
+      return done(null, { type: "local", id: user.id });
+    }
+    done(new Error("Cannot serialize user"));
   });
 
-  passport.deserializeUser(async (id: number, done) => {
-    const user = await storage.getUser(id);
-    done(null, user);
+  passport.deserializeUser(async (data: any, done) => {
+    try {
+      // New format: OAuth user
+      if (data?.type === "oauth" && data?.sub) {
+        const appUser = await authStorage.getLinkedAppUser(data.sub);
+        return done(null, appUser || false);
+      }
+      // New format: local user
+      if (data?.type === "local" && typeof data?.id === "number") {
+        const user = await storage.getUser(data.id);
+        return done(null, user || false);
+      }
+      // Legacy format: plain numeric ID (old local auth)
+      if (typeof data === "number") {
+        const user = await storage.getUser(data);
+        return done(null, user || false);
+      }
+      // Legacy format: full OAuth claims object (pre-fix Google sessions)
+      if (data?.claims?.sub) {
+        const appUser = await authStorage.getLinkedAppUser(data.claims.sub);
+        return done(null, appUser || false);
+      }
+      // Legacy format: full user row stored by old googleAuth
+      if (typeof data?.id === "number") {
+        const user = await storage.getUser(data.id);
+        return done(null, user || false);
+      }
+      done(null, false);
+    } catch (err: any) {
+      done(err);
+    }
   });
 
   app.post("/api/login", (req, res, next) => {

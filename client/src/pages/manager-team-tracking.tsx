@@ -10,6 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Users, CheckCircle, Clock, AlertCircle, XCircle, Plus, Upload, Download, Pencil, Trash2, Loader2, Search, ArrowUpDown } from "lucide-react";
+import { exportToCSV } from "@/lib/export-csv";
+import { ImportFileButton } from "@/components/import-file-button";
+import { importTemplates } from "@/lib/import-templates";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { Team, ScheduleSlot, Station, Event, Score } from "@shared/schema";
@@ -451,11 +454,19 @@ export default function ManagerTeamTracking() {
             </DialogContent>
           </Dialog>
 
+          <ImportFileButton
+            template={importTemplates.teams}
+            requiredColumns={["name", "schoolName", "category", "language"]}
+            onParsed={(rows) => importMutation.mutate(rows)}
+            disabled={importMutation.isPending}
+            testIdPrefix="import-teams-file"
+          />
+
           <Dialog open={showImport} onOpenChange={setShowImport}>
             <DialogTrigger asChild>
               <Button variant="outline" data-testid="button-import-teams">
                 <Upload className="h-4 w-4 mr-2" />
-                Import CSV
+                Paste CSV
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
@@ -500,21 +511,6 @@ export default function ManagerTeamTracking() {
         </div>
       </div>
 
-      {events.length > 1 && (
-        <div className="flex gap-2 flex-wrap">
-          {events.map((e) => (
-            <Button
-              key={e.id}
-              variant={selectedEventId === e.id ? "default" : "outline"}
-              onClick={() => setSelectedEventId(e.id)}
-              data-testid={`button-event-${e.id}`}
-            >
-              {e.name}
-            </Button>
-          ))}
-        </div>
-      )}
-
       {activeEvent && isDataLoading && (
         <div className="p-8 text-center text-muted-foreground">Loading team data...</div>
       )}
@@ -557,10 +553,28 @@ export default function ManagerTeamTracking() {
           <Card className="border-primary/10 bg-gradient-to-br from-card/50 to-card/30">
             <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/0">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  All Teams ({filteredAndSortedTeams.length})
-                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    All Teams ({filteredAndSortedTeams.length})
+                  </CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      exportToCSV("team-tracking.csv", ["Team", "School", "Country", "Category", "Language", "Progress"], filteredAndSortedTeams.map(({ team, scoredStations, totalStations, progressPercent }) => [
+                        team.name,
+                        team.schoolName || "",
+                        team.country || "",
+                        getCategoryLabel(team.category || ""),
+                        team.language || "",
+                        `${scoredStations}/${totalStations} (${Math.round(progressPercent)}%)`,
+                      ]))
+                    }
+                  >
+                    <Download className="h-4 w-4 mr-1" /> Export CSV
+                  </Button>
+                </div>
                 <div className="relative w-full md:w-72">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input

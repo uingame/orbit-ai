@@ -15,6 +15,7 @@ export interface IStorage {
   updateUser(userId: number, data: Partial<InsertUser>): Promise<User | undefined>;
   deleteUser(userId: number): Promise<void>;
   getJudges(): Promise<User[]>;
+  getManagers(): Promise<User[]>;
   getJudgesWithEvents(): Promise<(User & { assignedEvents: Event[] })[]>;
 
   // Events
@@ -104,6 +105,10 @@ export class DatabaseStorage implements IStorage {
 
   async getJudges(): Promise<User[]> {
     return await db.select().from(users).where(eq(users.role, "judge"));
+  }
+
+  async getManagers(): Promise<User[]> {
+    return await db.select().from(users).where(eq(users.role, "manager"));
   }
 
   async getJudgesWithEvents(): Promise<(User & { assignedEvents: Event[] })[]> {

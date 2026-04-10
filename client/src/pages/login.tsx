@@ -11,6 +11,7 @@ import { Redirect, useSearch } from "wouter";
 import { Rocket, Lock, User, AlertTriangle, Loader2 } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
 import { useState, useEffect } from "react";
+import { StarsBackground } from "@/components/stars-background";
 
 const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -51,16 +52,21 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md shadow-lg">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
+      <StarsBackground />
+      {/* Decorative orbital rings */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] border border-cyan-500/5 rounded-full animate-orbit pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] border border-purple-500/5 rounded-full animate-orbit pointer-events-none" style={{ animationDirection: 'reverse', animationDuration: '30s' }} />
+
+      <Card className="w-full max-w-md shadow-2xl border-cyan-500/10 relative z-10 glow-primary">
         <CardHeader className="text-center space-y-2 pb-8">
-          <div className="mx-auto w-12 h-12 rounded-md bg-foreground flex items-center justify-center mb-4">
-            <Rocket className="text-background h-6 w-6" />
+          <div className="mx-auto w-14 h-14 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center mb-4 shadow-lg shadow-cyan-500/30 animate-float">
+            <Rocket className="text-white h-7 w-7" />
           </div>
-          <CardTitle className="text-3xl font-bold tracking-tight font-display">
+          <CardTitle className="text-3xl font-bold tracking-wider font-display text-gradient">
             Orbit AI
           </CardTitle>
-          <CardDescription className="text-base">
+          <CardDescription className="text-base text-muted-foreground">
             Space Olympics Management Platform
           </CardDescription>
         </CardHeader>

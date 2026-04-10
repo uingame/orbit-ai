@@ -7,9 +7,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, User as UserIcon, Calendar, Trophy, BarChart3, Menu, Users, ClipboardList, MessageSquare, Target, Mail } from "lucide-react";
+import { LogOut, User as UserIcon, Calendar, Rocket, BarChart3, Menu, Users, ClipboardList, MessageSquare, Target, Mail } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
+import { ManagerEventProvider } from "@/contexts/manager-event-context";
+import { AdminEventProvider } from "@/contexts/admin-event-context";
+import { StarsBackground } from "@/components/stars-background";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
@@ -86,16 +89,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <header className="border-b border-border/50 bg-background/50 backdrop-blur-xl sticky top-0 z-50">
+    <div className="min-h-screen bg-background flex flex-col relative">
+      <StarsBackground />
+      <header className="border-b border-border/50 bg-card/80 backdrop-blur-xl sticky top-0 z-50" style={{ boxShadow: '0 1px 20px rgba(0, 170, 255, 0.08)' }}>
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-8">
             <Link href="/">
-              <span className="text-xl font-bold font-display tracking-tighter cursor-pointer flex items-center gap-2">
-                <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-background">
-                  <Trophy size={16} />
+              <span className="text-xl font-bold font-display tracking-wider cursor-pointer flex items-center gap-2">
+                <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20">
+                  <Rocket size={16} />
                 </span>
-                Orbit AI
+                <span className="text-gradient">Orbit AI</span>
               </span>
             </Link>
             
@@ -122,8 +126,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="gap-2 pl-2 pr-4 rounded-full border border-border/50 hover:bg-muted/50">
-                  <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                <Button variant="ghost" className="gap-2 pl-2 pr-4 rounded-full border border-cyan-500/20 hover:bg-cyan-500/10 hover:border-cyan-500/30">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500/20 to-blue-600/20 flex items-center justify-center text-cyan-400">
                     <UserIcon size={16} />
                   </div>
                   <span className="hidden sm:inline-block font-medium">{user.username}</span>
@@ -145,7 +149,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </header>
 
       <main className="flex-1 container mx-auto px-4 py-8">
-        {children}
+        {user.role === 'manager' ? (
+          <ManagerEventProvider>{children}</ManagerEventProvider>
+        ) : user.role === 'admin' ? (
+          <AdminEventProvider>{children}</AdminEventProvider>
+        ) : (
+          children
+        )}
       </main>
     </div>
   );

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useManagerEvent } from "@/contexts/manager-event-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,7 @@ import { api } from "@shared/routes";
 export default function ManagerAssignments() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const { selectedEventId, setSelectedEventId } = useManagerEvent();
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<ScheduleSlot | null>(null);
   const [selectedJudgeIds, setSelectedJudgeIds] = useState<number[]>([]);
@@ -149,21 +150,6 @@ export default function ManagerAssignments() {
           <p className="text-muted-foreground">Assign judges to teams for each station</p>
         </div>
       </div>
-
-      {events.length > 1 && (
-        <div className="flex gap-2 flex-wrap">
-          {events.map((e) => (
-            <Button
-              key={e.id}
-              variant={selectedEventId === e.id ? "default" : "outline"}
-              onClick={() => setSelectedEventId(e.id)}
-              data-testid={`button-event-${e.id}`}
-            >
-              {e.name}
-            </Button>
-          ))}
-        </div>
-      )}
 
       {activeEvent && (
         <Card>

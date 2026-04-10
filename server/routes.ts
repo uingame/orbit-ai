@@ -5,6 +5,8 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import { setupAuth } from "./auth";
 import { setupAuth as setupReplitAuth, registerAuthRoutes } from "./replit_integrations/auth";
+import { sendInvitationEmail } from "./email";
+import { findEventConflicts, formatConflictError } from "@shared/event-conflicts";
 import { registerChatRoutes } from "./replit_integrations/chat";
 import { registerImageRoutes } from "./replit_integrations/image";
 
@@ -12,13 +14,10 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Replit Auth (Google/social login) - only enable when we have the
-  // required configuration (the `REPL_ID`/issuer settings are normally
-  // provided by the Replit environment).  This avoids installing a second
-  // session middleware during local development, which previously caused
-  // cookies to be marked `secure` even over HTTP and resulted in perpetual
-  // 401s after login.
-  if (process.env.REPL_ID) {
+  // Google OAuth - only enable when we have the required configuration.
+  // This avoids installing a second session middleware during local
+  // development when Google credentials aren't set.
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     await setupReplitAuth(app);
     registerAuthRoutes(app);
   }
@@ -103,8 +102,40 @@ export async function registerRoutes(
       res.status(403).json({ message: "Judges cannot update event assignments" });
       return;
     }
-    const judgeIds = req.body.judgeIds || [];
-    const event = await storage.updateEventJudges(Number(req.params.id), judgeIds);
+    const eventId = Number(req.params.id);
+    const judgeIds: number[] = req.body.judgeIds || [];
+
+    // Check for judge scheduling conflicts (same-day events)
+    const targetEvent = await storage.getEvent(eventId);
+    if (!targetEvent) {
+      res.status(404).json({ message: "Event not found" });
+      return;
+    }
+    const allEvents = await storage.getEvents();
+    const targetDate = new Date(targetEvent.date).toDateString();
+    const overlappingEvents = allEvents.filter(
+      (e) => e.id !== eventId && new Date(e.date).toDateString() === targetDate
+    );
+
+    const conflicts: { judgeId: number; eventName: string }[] = [];
+    for (const judgeId of judgeIds) {
+      for (const otherEvent of overlappingEvents) {
+        if (otherEvent.judgeIds?.includes(judgeId)) {
+          conflicts.push({ judgeId, eventName: otherEvent.name });
+        }
+      }
+    }
+    if (conflicts.length > 0) {
+      const judges = await storage.getJudges();
+      const details = conflicts.map((c) => {
+        const judge = judges.find((j) => j.id === c.judgeId);
+        return `${judge?.name || `Judge #${c.judgeId}`} is already assigned to "${c.eventName}" on the same day`;
+      });
+      res.status(400).json({ message: "Judge scheduling conflict", conflicts, details });
+      return;
+    }
+
+    const event = await storage.updateEventJudges(eventId, judgeIds);
     if (!event) {
       res.status(404).json({ message: "Event not found" });
       return;
@@ -134,6 +165,16 @@ export async function registerRoutes(
       return;
     }
     res.status(201).json(newEvent);
+  });
+
+  app.get("/api/managers", async (req, res) => {
+    // Only admins can view manager list
+    if (req.isAuthenticated() && (req.user as any)?.role !== "admin") {
+      res.status(403).json({ message: "Only admins can view manager list" });
+      return;
+    }
+    const managers = await storage.getManagers();
+    res.json(managers);
   });
 
   app.get("/api/judges", async (req, res) => {
@@ -541,14 +582,18 @@ export async function registerRoutes(
       res.status(400).json({ message: "Maximum 100 judges per import" });
       return;
     }
+    const inviterUser = req.user as any;
     const created = [];
     const errors = [];
+    let emailsSent = 0;
+    let emailsFailed = 0;
     for (const row of data) {
       try {
         if (!row.name || !row.username) {
           errors.push({ row, error: "Missing required fields: name and username" });
           continue;
         }
+        const normalizedEmail = row.email ? String(row.email).toLowerCase().trim() : null;
         const existing = await storage.getUserByUsername(row.username);
         if (existing) {
           errors.push({ row, error: `Username "${row.username}" already exists` });
@@ -559,16 +604,50 @@ export async function registerRoutes(
           password: row.password || "password",
           role: "judge",
           name: row.name,
+          email: normalizedEmail,
           phone: row.phone || null,
           languages: row.languages && typeof row.languages === 'string' ? row.languages.split(";").map((l: string) => l.trim()) : ["English"],
           restrictions: row.restrictions || null,
         });
         created.push(judge);
+
+        // If email was provided, also create authorized_email entry and send invitation
+        if (normalizedEmail) {
+          try {
+            const existingAuth = await storage.getAuthorizedEmailByEmail(normalizedEmail);
+            if (!existingAuth) {
+              await storage.createAuthorizedEmail({
+                email: normalizedEmail,
+                role: "judge",
+                name: row.name,
+                createdBy: inviterUser.id,
+              });
+            }
+            const result = await sendInvitationEmail({
+              to: normalizedEmail,
+              recipientName: row.name,
+              role: "judge",
+              inviterName: inviterUser.name,
+            });
+            if (result.ok) emailsSent++;
+            else emailsFailed++;
+          } catch (emailErr: any) {
+            console.error(`[Import] Failed to send invitation to ${normalizedEmail}:`, emailErr);
+            emailsFailed++;
+          }
+        }
       } catch (error: any) {
         errors.push({ row, error: error.message });
       }
     }
-    res.status(201).json({ imported: created.length, errors: errors.length, judges: created, errorDetails: errors });
+    res.status(201).json({
+      imported: created.length,
+      errors: errors.length,
+      emailsSent,
+      emailsFailed,
+      judges: created,
+      errorDetails: errors,
+    });
   });
 
   // === AI Feedback Assistant ===
@@ -895,37 +974,121 @@ Always be encouraging and focus on growth areas rather than criticism.`;
     }
     const userRole = (req.user as any).role;
     const userId = (req.user as any).id;
-    const { email, role, name } = req.body;
-    
+    const { email, role, name, eventIds } = req.body;
+
     // Validate role is one of allowed values
     const allowedRoles = ["admin", "manager", "judge"];
     if (!allowedRoles.includes(role)) {
       res.status(400).json({ message: "Invalid role. Must be admin, manager, or judge" });
       return;
     }
-    
+
     // Only admins and managers can access this endpoint
     if (userRole !== "admin" && userRole !== "manager") {
       res.status(403).json({ message: "Forbidden" });
       return;
     }
-    
+
     // Managers can only add judges - strict server-side enforcement
     if (userRole === "manager" && role !== "judge") {
       res.status(403).json({ message: "Managers can only add judges" });
       return;
     }
-    
+
+    // Validate eventIds - must be an array of numbers
+    const normalizedEventIds: number[] = Array.isArray(eventIds)
+      ? eventIds.map((id: any) => Number(id)).filter((id: number) => Number.isFinite(id))
+      : [];
+
+    // Check for date conflicts among selected events
+    if (normalizedEventIds.length > 1) {
+      const allEvents = await storage.getEvents();
+      const conflicts = findEventConflicts(normalizedEventIds, allEvents);
+      if (conflicts.length > 0) {
+        res.status(400).json({
+          message: formatConflictError(conflicts, allEvents),
+          conflicts,
+        });
+        return;
+      }
+    }
+
+    // Admin role cannot be scoped to specific events
+    if (role === "admin" && normalizedEventIds.length > 0) {
+      res.status(400).json({
+        message: "Admins have access to all events - event assignment is not applicable",
+      });
+      return;
+    }
+
     try {
       const authorizedEmail = await storage.createAuthorizedEmail({
         email: email.toLowerCase().trim(),
         role,
         name,
+        eventIds: normalizedEventIds.length > 0 ? normalizedEventIds : null,
         createdBy: userId,
       });
-      res.status(201).json(authorizedEmail);
+
+      // Fetch event details for the email (if any events were assigned)
+      const assignedEvents = normalizedEventIds.length > 0
+        ? (await storage.getEvents()).filter(e => normalizedEventIds.includes(e.id))
+        : [];
+
+      // Fire-and-collect: send invitation email (don't fail the request if email fails)
+      const inviter = req.user as any;
+      const emailResult = await sendInvitationEmail({
+        to: authorizedEmail.email,
+        recipientName: name,
+        role: role as "admin" | "manager" | "judge",
+        inviterName: inviter?.name,
+        events: assignedEvents.map(e => ({ name: e.name, date: e.date, location: e.location })),
+      });
+
+      res.status(201).json({ ...authorizedEmail, emailSent: emailResult.ok, emailError: emailResult.error });
     } catch (error: any) {
       res.status(400).json({ message: error.message || "Failed to add authorized email" });
+    }
+  });
+
+  app.post("/api/authorized-emails/:id/resend", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+    const userRole = (req.user as any).role;
+    if (userRole !== "admin" && userRole !== "manager") {
+      res.status(403).json({ message: "Forbidden" });
+      return;
+    }
+
+    const target = await storage.getAuthorizedEmailById(req.params.id);
+    if (!target) {
+      res.status(404).json({ message: "Not found" });
+      return;
+    }
+
+    if (userRole === "manager" && target.role !== "judge") {
+      res.status(403).json({ message: "Managers can only resend judge invitations" });
+      return;
+    }
+
+    const inviter = req.user as any;
+    const assignedEvents = target.eventIds && target.eventIds.length > 0
+      ? (await storage.getEvents()).filter(e => target.eventIds!.includes(e.id))
+      : [];
+    const result = await sendInvitationEmail({
+      to: target.email,
+      recipientName: target.name,
+      role: target.role as "admin" | "manager" | "judge",
+      inviterName: inviter?.name,
+      events: assignedEvents.map(e => ({ name: e.name, date: e.date, location: e.location })),
+    });
+
+    if (result.ok) {
+      res.json({ success: true, message: "Invitation resent" });
+    } else {
+      res.status(500).json({ success: false, message: result.error || "Failed to send invitation" });
     }
   });
 
@@ -963,6 +1126,18 @@ Always be encouraging and focus on growth areas rather than criticism.`;
 }
 
 async function seedDatabase() {
+  // Ensure admin user exists (even if events already exist)
+  const existingAdmin = await storage.getUserByUsername("admin");
+  if (!existingAdmin) {
+    await storage.createUser({
+      username: "admin",
+      password: "password",
+      role: "admin",
+      name: "System Admin",
+      languages: ["English"],
+    });
+  }
+
   // Ensure manager user exists (even if events already exist)
   const existingManager = await storage.getUserByUsername("manager");
   if (!existingManager) {

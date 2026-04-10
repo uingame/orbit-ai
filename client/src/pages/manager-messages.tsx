@@ -11,10 +11,12 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { MessageSquare, Send, User as UserIcon, Clock, CheckCircle, Mail, Search, ArrowUpDown } from "lucide-react";
+import { MessageSquare, Send, User as UserIcon, Clock, CheckCircle, Mail, Search, ArrowUpDown, Download } from "lucide-react";
+import { exportToCSV } from "@/lib/export-csv";
 import type { User, Notification, Event } from "@shared/schema";
 import { api } from "@shared/routes";
 import { format } from "date-fns";
+import { formatDateTimeIL } from "@/lib/format-date";
 
 type SortColumn = "judge" | "message" | "date" | "status";
 type SortOrder = "asc" | "desc";
@@ -117,23 +119,36 @@ export default function ManagerMessages() {
     </TableHead>
   );
 
+  const filteredNotifications = useMemo(() => {
+    if (!searchQuery.trim()) return myNotifications;
+    const query = searchQuery.toLowerCase();
+    return myNotifications.filter((n) => {
+      const judge = getJudgeById(n.judgeId);
+      return (
+        n.message.toLowerCase().includes(query) ||
+        (judge?.name?.toLowerCase()?.includes(query) ?? false) ||
+        (judge?.username?.toLowerCase()?.includes(query) ?? false)
+      );
+    });
+  }, [myNotifications, searchQuery, allJudges]);
+
   const flatMessages = useMemo(() => {
     return filteredNotifications.map(n => ({
       ...n,
       judge: getJudgeById(n.judgeId),
     }));
-  }, [filteredNotifications]);
+  }, [filteredNotifications, allJudges]);
 
   const sortedFlatMessages = useMemo(() => {
     let sorted = [...flatMessages];
-    
+
     sorted.sort((a, b) => {
       let aVal: any;
       let bVal: any;
 
       if (sortColumn === "judge") {
-        aVal = a.judge?.name.toLowerCase() || "";
-        bVal = b.judge?.name.toLowerCase() || "";
+        aVal = a.judge?.name?.toLowerCase() || "";
+        bVal = b.judge?.name?.toLowerCase() || "";
       } else if (sortColumn === "message") {
         aVal = a.message.toLowerCase();
         bVal = b.message.toLowerCase();
@@ -153,19 +168,6 @@ export default function ManagerMessages() {
     return sorted;
   }, [flatMessages, sortColumn, sortOrder]);
 
-  const filteredNotifications = useMemo(() => {
-    if (!searchQuery.trim()) return myNotifications;
-    const query = searchQuery.toLowerCase();
-    return myNotifications.filter((n) => {
-      const judge = getJudgeById(n.judgeId);
-      return (
-        n.message.toLowerCase().includes(query) ||
-        judge?.name.toLowerCase().includes(query) ||
-        judge?.username.toLowerCase().includes(query)
-      );
-    });
-  }, [myNotifications, searchQuery]);
-
   const groupedByJudge = useMemo(() => {
     const groups: Record<number, Notification[]> = {};
     filteredNotifications.forEach((n) => {
@@ -173,7 +175,7 @@ export default function ManagerMessages() {
       groups[n.judgeId].push(n);
     });
     Object.values(groups).forEach((arr) => {
-      arr.sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+      arr.sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime());
     });
     return groups;
   }, [filteredNotifications]);
@@ -184,7 +186,7 @@ export default function ManagerMessages() {
       .sort((a, b) => {
         const aLatest = groupedByJudge[a][0]?.createdAt;
         const bLatest = groupedByJudge[b][0]?.createdAt;
-        return new Date(bLatest!).getTime() - new Date(aLatest!).getTime();
+        return new Date(bLatest ?? 0).getTime() - new Date(aLatest ?? 0).getTime();
       });
   }, [groupedByJudge]);
 
@@ -283,6 +285,20 @@ export default function ManagerMessages() {
             Flat List
           </Button>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            exportToCSV("messages.csv", ["Judge", "Message", "Date", "Status"], sortedFlatMessages.map((notification) => [
+              notification.judge?.name || "Unknown",
+              notification.message,
+              notification.createdAt ? formatDateTimeIL(notification.createdAt) : "Unknown",
+              notification.isRead ? "Read" : "Unread",
+            ]))
+          }
+        >
+          <Download className="h-4 w-4 mr-1" /> Export CSV
+        </Button>
         <Badge variant="secondary">{myNotifications.length} total messages</Badge>
       </div>
 
@@ -369,7 +385,7 @@ export default function ManagerMessages() {
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
                           {notification.createdAt
-                            ? format(new Date(notification.createdAt), "MMM d, yyyy 'at' h:mm a")
+                            ? formatDateTimeIL(notification.createdAt)
                             : "Unknown date"}
                         </p>
                       </div>
@@ -424,7 +440,7 @@ export default function ManagerMessages() {
                         <TableCell className="text-sm max-w-md line-clamp-2">{notification.message}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {notification.createdAt
-                            ? format(new Date(notification.createdAt), "MMM d, yyyy h:mm a")
+                            ? formatDateTimeIL(notification.createdAt)
                             : "Unknown"}
                         </TableCell>
                         <TableCell>

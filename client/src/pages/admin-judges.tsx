@@ -10,7 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Users, Phone, Edit2, Search, ArrowUpDown, Calendar, MapPin } from "lucide-react";
+import { Users, Phone, Edit2, Search, ArrowUpDown, Calendar, MapPin, Download } from "lucide-react";
+import { exportToCSV } from "@/lib/export-csv";
+import { formatDateIL } from "@/lib/format-date";
 import type { User } from "@shared/schema";
 
 interface Judge {
@@ -205,6 +207,20 @@ export default function AdminJudges() {
                 <Users className="h-5 w-5 text-primary" />
                 All Judges ({filteredAndSortedJudges.length})
               </CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  exportToCSV("judges.csv", ["Name", "Username", "Events", "Phone"], filteredAndSortedJudges.map((judge) => [
+                    judge.name,
+                    judge.username,
+                    judge.assignedEvents?.map((e: any) => e.name).join(", ") || "",
+                    judge.phone || "",
+                  ]))
+                }
+              >
+                <Download className="h-4 w-4 mr-1" /> Export CSV
+              </Button>
             </div>
             <div className="relative w-full md:w-80">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -257,7 +273,7 @@ export default function AdminJudges() {
                                 <Badge
                                   key={event.id}
                                   variant="outline"
-                                  className="text-xs bg-blue/5 text-blue-700 dark:text-blue-300 border-blue/30"
+                                  className="text-xs bg-blue/5 text-white dark:text-blue-300 border-blue/30"
                                 >
                                   <Calendar className="h-3 w-3 mr-1" />
                                   {event.name}
@@ -338,7 +354,7 @@ export default function AdminJudges() {
                                         <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
                                           <span className="flex items-center gap-1">
                                             <Calendar className="h-3 w-3" />
-                                            {new Date(event.date).toLocaleDateString('he-IL')}
+                                            {formatDateIL(event.date)}
                                           </span>
                                           <span className="flex items-center gap-1">
                                             <MapPin className="h-3 w-3" />

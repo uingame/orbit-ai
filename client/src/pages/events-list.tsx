@@ -13,6 +13,7 @@ import { Calendar, Plus, MapPin, Search, ArrowUpDown, CheckCircle, Circle, Trash
 import { useState, useMemo } from "react";
 import { z } from "zod";
 import { format } from "date-fns";
+import { formatDateIL } from "@/lib/format-date";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -226,7 +227,7 @@ export default function EventsList() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Calendar className="h-4 w-4 text-muted-foreground" />
-                          {format(new Date(event.date), "MMM d, yyyy")}
+                          {formatDateIL(event.date)}
                         </div>
                       </TableCell>
                       <TableCell>

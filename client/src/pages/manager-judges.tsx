@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Edit2, Trash2, Users, AlertTriangle, Phone, Languages, Upload, Search, ArrowUpDown, Calendar } from "lucide-react";
+import { Plus, Edit2, Trash2, Users, AlertTriangle, Phone, Languages, Upload, Search, ArrowUpDown, Calendar, Download } from "lucide-react";
+import { exportToCSV } from "@/lib/export-csv";
 import type { User } from "@shared/schema";
 
 type SortColumn = "name" | "username" | "events" | "phone";
@@ -393,10 +394,27 @@ export default function ManagerJudges() {
       <Card className="border-primary/10 bg-gradient-to-br from-card/50 to-card/30">
         <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/0">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              All Judges ({filteredAndSortedJudges.length})
-            </CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                All Judges ({filteredAndSortedJudges.length})
+              </CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  exportToCSV("judges.csv", ["Name", "Username", "Events", "Phone", "Languages"], filteredAndSortedJudges.map((judge) => [
+                    judge.name,
+                    judge.username,
+                    judge.assignedEvents?.map((e: any) => e.name).join(", ") || "",
+                    judge.phone || "",
+                    judge.languages?.join(", ") || "",
+                  ]))
+                }
+              >
+                <Download className="h-4 w-4 mr-1" /> Export CSV
+              </Button>
+            </div>
             <div className="relative w-full md:w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input

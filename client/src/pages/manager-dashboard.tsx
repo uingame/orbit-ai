@@ -14,7 +14,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScoringMatrix } from "@/components/scoring-matrix";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { formatDateIL } from "@/lib/format-date";
+import { useManagerEvent } from "@/contexts/manager-event-context";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -39,7 +41,7 @@ function getStationColor(stationId: number) {
 
 export default function ManagerDashboard() {
   const { user } = useAuth();
-  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const { selectedEventId, setSelectedEventId } = useManagerEvent();
 
   const { data: managerEvents, isLoading } = useQuery({
     queryKey: [`/api/events`],
@@ -51,13 +53,13 @@ export default function ManagerDashboard() {
     },
   });
 
-  const activeEvent = useMemo(() => {
+  useEffect(() => {
     if (!selectedEventId && managerEvents?.length) {
       setSelectedEventId(managerEvents[0].id);
-      return managerEvents[0];
     }
-    return managerEvents?.find((e: any) => e.id === selectedEventId);
   }, [managerEvents, selectedEventId]);
+
+  const activeEvent = managerEvents?.find((e: any) => e.id === selectedEventId);
 
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading your event...</div>;
 
@@ -108,7 +110,7 @@ export default function ManagerDashboard() {
             <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
               <span className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
-                {new Date(activeEvent.date).toLocaleDateString()}
+                {formatDateIL(activeEvent.date)}
               </span>
               {activeEvent.location && (
                 <span className="flex items-center gap-1">
@@ -369,10 +371,10 @@ function UnifiedEventView({ eventId, eventName }: { eventId: number; eventName: 
                 <TableHeader className="bg-gradient-to-r from-primary/5 to-primary/0">
                   <TableRow>
                     <TableHead>Judge</TableHead>
-                    <TableHead>Events</TableHead>
-                    <TableHead>Progress</TableHead>
+                    <TableHead className="hidden lg:table-cell">Events</TableHead>
+                    <TableHead className="hidden sm:table-cell">Progress</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Last Station</TableHead>
+                    <TableHead className="hidden md:table-cell">Last Station</TableHead>
                     <TableHead className="text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -394,7 +396,7 @@ function UnifiedEventView({ eventId, eventName }: { eventId: number; eventName: 
                             {judge.name}
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden lg:table-cell">
                           {assignedEvents.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
                               {assignedEvents.slice(0, 2).map((event) => (
@@ -410,7 +412,7 @@ function UnifiedEventView({ eventId, eventName }: { eventId: number; eventName: 
                             <span className="text-muted-foreground text-sm">—</span>
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden sm:table-cell">
                           <div className="flex items-center gap-2 min-w-[120px]">
                             <Progress value={progressPct} className="h-1.5 flex-1" />
                             <span className="text-xs text-muted-foreground whitespace-nowrap">
@@ -431,7 +433,7 @@ function UnifiedEventView({ eventId, eventName }: { eventId: number; eventName: 
                             <Badge variant="outline" className="text-xs">In Progress</Badge>
                           )}
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
+                        <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
                           {lastStation ? lastStation.name : "—"}
                         </TableCell>
                         <TableCell className="text-right">
@@ -467,9 +469,9 @@ function UnifiedEventView({ eventId, eventName }: { eventId: number; eventName: 
                 <TableHeader className="bg-gradient-to-r from-primary/5 to-primary/0">
                   <TableRow>
                     <TableHead>Team</TableHead>
-                    <TableHead>School</TableHead>
-                    <TableHead>City</TableHead>
-                    <TableHead>Country</TableHead>
+                    <TableHead className="hidden sm:table-cell">School</TableHead>
+                    <TableHead className="hidden md:table-cell">City</TableHead>
+                    <TableHead className="hidden md:table-cell">Country</TableHead>
                     <TableHead className="text-right">Progress</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -483,9 +485,9 @@ function UnifiedEventView({ eventId, eventName }: { eventId: number; eventName: 
                     return (
                       <TableRow key={team.id} data-testid={`team-card-${team.id}`}>
                         <TableCell className="font-medium" data-testid={`text-team-name-${team.id}`}>{team.name}</TableCell>
-                        <TableCell className="text-muted-foreground">{team.schoolName || "—"}</TableCell>
-                        <TableCell className="text-muted-foreground">{team.city || "—"}</TableCell>
-                        <TableCell className="text-muted-foreground">{team.country || "—"}</TableCell>
+                        <TableCell className="hidden sm:table-cell text-muted-foreground">{team.schoolName || "—"}</TableCell>
+                        <TableCell className="hidden md:table-cell text-muted-foreground">{team.city || "—"}</TableCell>
+                        <TableCell className="hidden md:table-cell text-muted-foreground">{team.country || "—"}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
                             <Progress value={pct} className="h-1.5 w-20" />
@@ -520,9 +522,9 @@ function UnifiedEventView({ eventId, eventName }: { eventId: number; eventName: 
                   <TableRow>
                     <TableHead>Time</TableHead>
                     <TableHead>Team</TableHead>
-                    <TableHead>School</TableHead>
+                    <TableHead className="hidden md:table-cell">School</TableHead>
                     <TableHead>Station</TableHead>
-                    <TableHead>Judges</TableHead>
+                    <TableHead className="hidden sm:table-cell">Judges</TableHead>
                     <TableHead className="text-right">Status</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -540,14 +542,14 @@ function UnifiedEventView({ eventId, eventName }: { eventId: number; eventName: 
                           <TableCell className="font-medium" data-testid={`slot-team-${slot.id}`}>
                             {team?.name || "Unknown Team"}
                           </TableCell>
-                          <TableCell className="text-muted-foreground text-sm">{team?.schoolName || "—"}</TableCell>
+                          <TableCell className="hidden md:table-cell text-muted-foreground text-sm">{team?.schoolName || "—"}</TableCell>
                           <TableCell className="text-sm">
                             <div className="flex items-center gap-1">
                               <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
                               {station?.name || "—"}
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="hidden sm:table-cell">
                             {slotJudges.length > 0 ? (
                               <div className="flex flex-wrap gap-1">
                                 {slotJudges.map((j: any) => (
