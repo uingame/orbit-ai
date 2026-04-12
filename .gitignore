@@ -41,3 +41,6 @@ desktop.ini
 vite.config.ts.*
 *.tar.gz
 coverage
+
+# E2E tests (simulation tests against production)
+e2e/

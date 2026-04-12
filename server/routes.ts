@@ -70,12 +70,18 @@ export async function registerRoutes(
       res.status(403).json({ message: "Judges cannot create events" });
       return;
     }
-    const eventData = {
-      ...req.body,
-      date: typeof req.body.date === 'string' ? new Date(req.body.date) : req.body.date,
-    };
-    const event = await storage.createEvent(eventData);
-    res.status(201).json(event);
+    if (!req.body.name?.trim()) { res.status(400).json({ message: "Event name is required" }); return; }
+    if (!req.body.date) { res.status(400).json({ message: "Event date is required" }); return; }
+    try {
+      const eventData = {
+        ...req.body,
+        date: typeof req.body.date === 'string' ? new Date(req.body.date) : req.body.date,
+      };
+      const event = await storage.createEvent(eventData);
+      res.status(201).json(event);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Failed to create event" });
+    }
   });
 
   app.put("/api/events/:id", async (req, res) => {
@@ -149,8 +155,12 @@ export async function registerRoutes(
       res.status(403).json({ message: "Judges cannot delete events" });
       return;
     }
-    await storage.deleteEvent(Number(req.params.id));
-    res.status(204).send();
+    try {
+      await storage.deleteEvent(Number(req.params.id));
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Failed to delete event" });
+    }
   });
 
   app.post("/api/events/:id/duplicate", async (req, res) => {
@@ -305,8 +315,14 @@ export async function registerRoutes(
       res.status(403).json({ message: "Judges cannot create stations" });
       return;
     }
-    const station = await storage.createStation(req.body);
-    res.status(201).json(station);
+    if (!req.body.name?.trim()) { res.status(400).json({ message: "Station name is required" }); return; }
+    if (!req.body.rubric?.criteria?.length) { res.status(400).json({ message: "Station must have at least one rubric criterion" }); return; }
+    try {
+      const station = await storage.createStation(req.body);
+      res.status(201).json(station);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Failed to create station" });
+    }
   });
 
   app.put("/api/stations/:id", async (req, res) => {
@@ -329,8 +345,12 @@ export async function registerRoutes(
       res.status(403).json({ message: "Judges cannot delete stations" });
       return;
     }
-    await storage.deleteStation(Number(req.params.id));
-    res.status(204).send();
+    try {
+      await storage.deleteStation(Number(req.params.id));
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Failed to delete station" });
+    }
   });
 
   // === Teams ===
@@ -350,8 +370,13 @@ export async function registerRoutes(
       res.status(403).json({ message: "Judges cannot create teams" });
       return;
     }
-    const team = await storage.createTeam(req.body);
-    res.status(201).json(team);
+    if (!req.body.name?.trim()) { res.status(400).json({ message: "Team name is required" }); return; }
+    try {
+      const team = await storage.createTeam(req.body);
+      res.status(201).json(team);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Failed to create team" });
+    }
   });
 
   app.put("/api/teams/:id", async (req, res) => {
@@ -374,8 +399,12 @@ export async function registerRoutes(
       res.status(403).json({ message: "Judges cannot delete teams" });
       return;
     }
-    await storage.deleteTeam(Number(req.params.id));
-    res.status(204).send();
+    try {
+      await storage.deleteTeam(Number(req.params.id));
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Failed to delete team" });
+    }
   });
 
   // === Slots ===
@@ -395,13 +424,20 @@ export async function registerRoutes(
       res.status(403).json({ message: "Judges cannot create slots" });
       return;
     }
-    const slotData = {
-      ...req.body,
-      startTime: typeof req.body.startTime === 'string' ? new Date(req.body.startTime) : req.body.startTime,
-      endTime: typeof req.body.endTime === 'string' ? new Date(req.body.endTime) : req.body.endTime,
-    };
-    const slot = await storage.createSlot(slotData);
-    res.status(201).json(slot);
+    if (!req.body.eventId) { res.status(400).json({ message: "Event ID is required" }); return; }
+    if (!req.body.teamId) { res.status(400).json({ message: "Team ID is required" }); return; }
+    if (!req.body.stationId) { res.status(400).json({ message: "Station ID is required" }); return; }
+    try {
+      const slotData = {
+        ...req.body,
+        startTime: typeof req.body.startTime === 'string' ? new Date(req.body.startTime) : req.body.startTime,
+        endTime: typeof req.body.endTime === 'string' ? new Date(req.body.endTime) : req.body.endTime,
+      };
+      const slot = await storage.createSlot(slotData);
+      res.status(201).json(slot);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Failed to create slot" });
+    }
   });
 
   app.put("/api/slots/:id", async (req, res) => {
@@ -429,8 +465,12 @@ export async function registerRoutes(
       res.status(403).json({ message: "Judges cannot delete slots" });
       return;
     }
-    await storage.deleteSlot(Number(req.params.id));
-    res.status(204).send();
+    try {
+      await storage.deleteSlot(Number(req.params.id));
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Failed to delete slot" });
+    }
   });
 
   // === Scores ===
@@ -445,17 +485,64 @@ export async function registerRoutes(
   });
 
   app.post(api.scores.create.path, async (req, res) => {
-    // If judge is submitting, validate they are assigned to this slot
-    if (req.isAuthenticated() && (req.user as any)?.role === "judge") {
-      const judgeId = (req.user as any).id;
+    if (!req.body.slotId) { res.status(400).json({ message: "Slot ID is required" }); return; }
+    if (!req.body.scores || typeof req.body.scores !== "object") { res.status(400).json({ message: "Scores object is required" }); return; }
+
+    try {
       const slot = await storage.getSlotById(req.body.slotId);
-      if (!slot || !slot.judgeIds || !slot.judgeIds.includes(judgeId)) {
-        res.status(403).json({ message: "You are not assigned to this slot" });
+      if (!slot) { res.status(404).json({ message: "Slot not found" }); return; }
+
+      // If judge is submitting, validate they are assigned to this slot
+      const judgeId = req.isAuthenticated() && (req.user as any)?.role === "judge"
+        ? (req.user as any).id
+        : req.body.judgeId;
+
+      if (req.isAuthenticated() && (req.user as any)?.role === "judge") {
+        if (!slot.judgeIds || !slot.judgeIds.includes(judgeId)) {
+          res.status(403).json({ message: "You are not assigned to this slot" });
+          return;
+        }
+      }
+
+      // Check for duplicate score (same slot + same judge)
+      const existingScores = await storage.getScores(slot.eventId);
+      const duplicate = existingScores.find(
+        (s) => s.slotId === req.body.slotId && s.judgeId === (req.body.judgeId || judgeId)
+      );
+      if (duplicate) {
+        res.status(409).json({ message: "Score already submitted for this slot by this judge" });
         return;
       }
+
+      // Validate scores against station rubric
+      const stationsList = await storage.getStations(slot.eventId);
+      const station = stationsList.find((s) => s.id === (req.body.stationId || slot.stationId));
+      if (station?.rubric?.criteria) {
+        const rubricCriteria = station.rubric.criteria as Array<{ name: string; maxPoints: number }>;
+        const submittedScores = req.body.scores as Record<string, number>;
+
+        for (const [criterion, value] of Object.entries(submittedScores)) {
+          if (typeof value !== "number" || value < 0) {
+            res.status(400).json({ message: `Score for "${criterion}" must be a non-negative number` });
+            return;
+          }
+          const rubricItem = rubricCriteria.find((c) => c.name === criterion);
+          if (!rubricItem) {
+            res.status(400).json({ message: `Unknown criterion: "${criterion}". Valid criteria: ${rubricCriteria.map((c) => c.name).join(", ")}` });
+            return;
+          }
+          if (value > rubricItem.maxPoints) {
+            res.status(400).json({ message: `Score for "${criterion}" (${value}) exceeds maximum of ${rubricItem.maxPoints}` });
+            return;
+          }
+        }
+      }
+
+      const score = await storage.createScore(req.body);
+      res.status(201).json(score);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Failed to submit score" });
     }
-    const score = await storage.createScore(req.body);
-    res.status(201).json(score);
   });
 
   // === CSV Export ===
