@@ -109,21 +109,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="md:hidden">
-              <Sheet open={isOpen} onOpenChange={setIsOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    <Menu />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="w-[240px] bg-card border-r border-border">
-                  <div className="flex flex-col gap-6 mt-8">
-                    <NavLinks />
-                  </div>
-                </SheetContent>
-              </Sheet>
-            </div>
-
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="gap-2 pl-2 pr-4 rounded-full border border-cyan-500/20 hover:bg-cyan-500/10 hover:border-cyan-500/30">
@@ -144,6 +129,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            <div className="md:hidden">
+              <Sheet open={isOpen} onOpenChange={setIsOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <Menu />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-[240px] bg-card border-r border-border">
+                  <div className="flex flex-col gap-6 mt-8">
+                    <NavLinks />
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
           </div>
         </div>
       </header>

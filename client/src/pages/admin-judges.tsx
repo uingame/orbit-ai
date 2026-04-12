@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Users, Phone, Edit2, Search, ArrowUpDown, Calendar, MapPin, Download } from "lucide-react";
+import { Users, Phone, Edit2, Search, ArrowUpDown, Calendar, MapPin, Download, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { exportToCSV } from "@/lib/export-csv";
 import { formatDateIL } from "@/lib/format-date";
 import type { User } from "@shared/schema";
@@ -75,6 +76,20 @@ export default function AdminJudges() {
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to update assignments", variant: "destructive" });
+    },
+  });
+
+  const deleteJudgeMutation = useMutation({
+    mutationFn: async (judgeId: number) => {
+      return apiRequest("DELETE", `/api/judges/${judgeId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/judges-with-events"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      toast({ title: "Deleted", description: "Judge has been removed" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to delete judge", variant: "destructive" });
     },
   });
 
@@ -301,6 +316,36 @@ export default function AdminJudges() {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="hover:bg-destructive/10 hover:text-destructive transition-colors"
+                              data-testid={`button-delete-judge-${judge.id}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete {judge.name}?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently remove this judge from the system. This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deleteJudgeMutation.mutate(judge.id)}
+                                className="bg-destructive hover:bg-destructive/90"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                         <Dialog open={editDialogOpen && editingJudgeId === judge.id} onOpenChange={(open) => {
                           if (!open) {
                             setEditDialogOpen(false);
@@ -388,6 +433,7 @@ export default function AdminJudges() {
                             </DialogFooter>
                           </DialogContent>
                         </Dialog>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
