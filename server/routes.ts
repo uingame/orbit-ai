@@ -8,7 +8,6 @@ import { setupAuth as setupReplitAuth, registerAuthRoutes } from "./replit_integ
 import { sendInvitationEmail } from "./email";
 import { findEventConflicts, formatConflictError } from "@shared/event-conflicts";
 import { registerChatRoutes } from "./replit_integrations/chat";
-import { registerImageRoutes } from "./replit_integrations/image";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -27,7 +26,6 @@ export async function registerRoutes(
 
   // AI Integrations
   registerChatRoutes(app);
-  registerImageRoutes(app);
 
   // === Events ===
   app.get(api.events.list.path, async (req, res) => {
