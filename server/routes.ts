@@ -862,11 +862,11 @@ export async function registerRoutes(
     }));
     conversationHistory.push({ role: "user", content });
 
-    // Call OpenAI
+    // Call Groq
     const OpenAI = (await import("openai")).default;
-    const openai = new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    const groq = new OpenAI({
+      apiKey: process.env.GROQ_API_KEY,
+      baseURL: "https://api.groq.com/openai/v1",
     });
 
     const systemPrompt = `You are an AI assistant helping a judge score a team's performance at a Space Olympics competition.
@@ -889,8 +889,8 @@ When suggesting scores, respond with JSON in this format at the end of your mess
 Always be encouraging and focus on growth areas rather than criticism.`;
 
     try {
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+      const completion = await groq.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
         messages: [
           { role: "system", content: systemPrompt },
           ...conversationHistory,

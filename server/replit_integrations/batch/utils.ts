@@ -16,8 +16,8 @@ import pRetry from "p-retry";
  *   artworks,
  *   async (artwork) => {
  *     // Your custom LLM logic here
- *     const response = await openai.chat.completions.create({
- *       model: "gpt-5.1",
+ *     const response = await groq.chat.completions.create({
+ *       model: "llama-3.3-70b-versatile",
  *       messages: [{ role: "user", content: `Categorize: ${artwork.name}` }],
  *       response_format: { type: "json_object" },
  *     });
@@ -68,8 +68,8 @@ export function isRateLimitError(error: unknown): boolean {
  * const categorized = await batchProcess(
  *   csvRows,
  *   async (row) => {
- *     const response = await openai.chat.completions.create({
- *       model: "gpt-5.1", // the newest OpenAI model
+ *     const response = await groq.chat.completions.create({
+ *       model: "llama-3.3-70b-versatile", // the newest OpenAI model
  *       messages: [{ role: "user", content: `Categorize artwork: ${row.name}` }],
  *       response_format: { type: "json_object" },
  *     });
