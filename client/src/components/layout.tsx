@@ -46,6 +46,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
               Users
             </span>
           </Link>
+          <Link href="/admin/managers">
+            <span className={`cursor-pointer font-medium transition-colors hover:text-primary ${location.includes('/admin/managers') ? 'text-primary' : 'text-muted-foreground'}`}>
+              Managers
+            </span>
+          </Link>
         </>
       )}
       {user.role === 'manager' && (

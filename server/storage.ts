@@ -17,6 +17,7 @@ export interface IStorage {
   getJudges(): Promise<User[]>;
   getManagers(): Promise<User[]>;
   getJudgesWithEvents(): Promise<(User & { assignedEvents: Event[] })[]>;
+  getManagersWithEvents(): Promise<(User & { assignedEvents: Event[] })[]>;
 
   // Events
   getEvents(): Promise<Event[]>;
@@ -114,13 +115,26 @@ export class DatabaseStorage implements IStorage {
   async getJudgesWithEvents(): Promise<(User & { assignedEvents: Event[] })[]> {
     const judges = await this.getJudges();
     const allEvents = await this.getEvents();
-    
+
     return judges.map(judge => {
-      const assignedEvents = allEvents.filter(event => 
+      const assignedEvents = allEvents.filter(event =>
         event.judgeIds?.includes(judge.id)
       );
       return {
         ...judge,
+        assignedEvents,
+      };
+    });
+  }
+
+  async getManagersWithEvents(): Promise<(User & { assignedEvents: Event[] })[]> {
+    const managers = await this.getManagers();
+    const allEvents = await this.getEvents();
+
+    return managers.map(manager => {
+      const assignedEvents = allEvents.filter(event => event.managerId === manager.id);
+      return {
+        ...manager,
         assignedEvents,
       };
     });

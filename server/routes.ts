@@ -187,6 +187,47 @@ export async function registerRoutes(
     res.json(managers);
   });
 
+  app.get("/api/managers-with-events", async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any)?.role !== "admin") {
+      res.status(403).json({ message: "Only admins can view manager list" });
+      return;
+    }
+    const managers = await storage.getManagersWithEvents();
+    res.json(managers);
+  });
+
+  app.put("/api/events/:id/manager", async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any)?.role !== "admin") {
+      res.status(403).json({ message: "Only admins can update event manager" });
+      return;
+    }
+    const eventId = Number(req.params.id);
+    const managerId: number | null = req.body.managerId ?? null;
+    const event = await storage.updateEvent(eventId, { managerId });
+    if (!event) {
+      res.status(404).json({ message: "Event not found" });
+      return;
+    }
+    res.json(event);
+  });
+
+  app.delete("/api/managers/:id", async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any)?.role !== "admin") {
+      res.status(403).json({ message: "Only admins can delete managers" });
+      return;
+    }
+    const managerId = Number(req.params.id);
+    // Clear managerId from any events assigned to this manager
+    const allEvents = await storage.getEvents();
+    for (const event of allEvents) {
+      if (event.managerId === managerId) {
+        await storage.updateEvent(event.id, { managerId: null });
+      }
+    }
+    await storage.deleteUser(managerId);
+    res.status(204).send();
+  });
+
   app.get("/api/judges", async (req, res) => {
     // Judges cannot view list of all judges
     if (req.isAuthenticated() && (req.user as any)?.role === "judge") {

@@ -48,8 +48,7 @@ export default function ManagerDashboard() {
     queryFn: async () => {
       const res = await fetch(api.events.list.path);
       if (!res.ok) throw new Error("Failed to fetch events");
-      const allEvents = await res.json();
-      return allEvents.filter((e: any) => e.managerId === user?.id);
+      return res.json();
     },
   });
 

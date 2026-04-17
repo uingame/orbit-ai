@@ -16,6 +16,7 @@ import Leaderboard from "@/pages/leaderboard";
 import AdminEventManagement from "@/pages/admin-event-management";
 import AdminAuthorizedEmails from "@/pages/admin-authorized-emails";
 import AdminJudges from "@/pages/admin-judges";
+import AdminManagers from "@/pages/admin-managers";
 import ResultsPage from "@/pages/results";
 import { Layout } from "@/components/layout";
 import { useAuth } from "@/hooks/use-auth";
@@ -59,6 +60,10 @@ function Router() {
 
       <Route path="/admin/judges">
         {() => <ProtectedRoute component={AdminJudges} role="admin" />}
+      </Route>
+
+      <Route path="/admin/managers">
+        {() => <ProtectedRoute component={AdminManagers} role="admin" />}
       </Route>
       
       <Route path="/results">
