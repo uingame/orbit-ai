@@ -10,10 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Users, Phone, Edit2, Search, ArrowUpDown, Calendar, MapPin, Download, Trash2, Mail } from "lucide-react";
+import { Users, Phone, Edit2, Search, ArrowUpDown, Calendar, MapPin, Download, Trash2, Mail, KeyRound } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { exportToCSV } from "@/lib/export-csv";
 import { formatDateIL } from "@/lib/format-date";
+import { EditCredentialsDialog } from "@/components/edit-credentials-dialog";
 
 interface Manager {
   id: number;
@@ -41,6 +42,8 @@ export default function AdminManagers() {
   const [editingManagerId, setEditingManagerId] = useState<number | null>(null);
   const [selectedEventIds, setSelectedEventIds] = useState<number[]>([]);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [credentialsManager, setCredentialsManager] = useState<Manager | null>(null);
+  const [credentialsOpen, setCredentialsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortColumn, setSortColumn] = useState<SortColumn>("name");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
@@ -336,6 +339,20 @@ export default function AdminManagers() {
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setCredentialsManager(manager);
+                              setCredentialsOpen(true);
+                            }}
+                            data-testid={`button-credentials-manager-${manager.id}`}
+                            className="hover:bg-amber-500/10 hover:text-amber-500 transition-colors"
+                            title="Edit credentials"
+                          >
+                            <KeyRound className="h-4 w-4 mr-1" />
+                            Credentials
+                          </Button>
                           <Dialog open={editDialogOpen && editingManagerId === manager.id} onOpenChange={(open) => {
                             if (!open) {
                               setEditDialogOpen(false);
@@ -443,6 +460,16 @@ export default function AdminManagers() {
           )}
         </CardContent>
       </Card>
+
+      <EditCredentialsDialog
+        user={credentialsManager}
+        open={credentialsOpen}
+        onOpenChange={(open) => {
+          setCredentialsOpen(open);
+          if (!open) setCredentialsManager(null);
+        }}
+        invalidateKeys={["/api/managers-with-events", "/api/managers"]}
+      />
     </div>
   );
 }

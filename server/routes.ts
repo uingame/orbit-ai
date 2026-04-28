@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { randomBytes } from "crypto";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
@@ -8,6 +9,11 @@ import { setupAuth as setupReplitAuth, registerAuthRoutes } from "./replit_integ
 import { sendInvitationEmail } from "./email";
 import { findEventConflicts, formatConflictError } from "@shared/event-conflicts";
 import { registerChatRoutes } from "./replit_integrations/chat";
+
+// URL-safe random token for one-time invitation setup links.
+function generateSetupToken(): string {
+  return randomBytes(24).toString("base64url");
+}
 
 export async function registerRoutes(
   httpServer: Server,
@@ -215,15 +221,77 @@ export async function registerRoutes(
       return;
     }
     const managerId = Number(req.params.id);
-    // Clear managerId from any events assigned to this manager
-    const allEvents = await storage.getEvents();
-    for (const event of allEvents) {
-      if (event.managerId === managerId) {
-        await storage.updateEvent(event.id, { managerId: null });
-      }
-    }
+    // storage.deleteUser performs full cleanup (oauth_accounts, authorized_emails,
+    // event/slot detachments, notifications), so we don't need to manually clear
+    // managerId from events here anymore.
     await storage.deleteUser(managerId);
     res.status(204).send();
+  });
+
+  // Generic user editor (admin-only). Used by the "Edit credentials" dialog
+  // so an admin can change a user's username, password, name, email, phone
+  // or role from one place regardless of whether they are listed under the
+  // judges page or the managers page.
+  app.put("/api/users/:id", async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any)?.role !== "admin") {
+      res.status(403).json({ message: "Only admins can edit users" });
+      return;
+    }
+    const userId = Number(req.params.id);
+
+    // Whitelist the fields an admin is allowed to update via this endpoint.
+    const allowed: any = {};
+    if (typeof req.body.username === "string" && req.body.username.trim()) {
+      allowed.username = req.body.username.trim();
+    }
+    if (typeof req.body.password === "string" && req.body.password.length > 0) {
+      // Stored as plaintext for parity with the rest of the codebase
+      // (see auth.ts comment about hashing for production).
+      allowed.password = req.body.password;
+    }
+    if (typeof req.body.name === "string" && req.body.name.trim()) {
+      allowed.name = req.body.name.trim();
+    }
+    if (typeof req.body.email === "string") {
+      allowed.email = req.body.email.trim().toLowerCase() || null;
+    }
+    if (typeof req.body.phone === "string") {
+      allowed.phone = req.body.phone.trim() || null;
+    }
+    if (
+      typeof req.body.role === "string" &&
+      ["admin", "manager", "judge"].includes(req.body.role)
+    ) {
+      allowed.role = req.body.role;
+    }
+
+    if (Object.keys(allowed).length === 0) {
+      res.status(400).json({ message: "No valid fields to update" });
+      return;
+    }
+
+    // Reject duplicate usernames up front so we return a friendly error rather
+    // than a raw DB unique-violation.
+    if (allowed.username) {
+      const conflict = await storage.getUserByUsername(allowed.username);
+      if (conflict && conflict.id !== userId) {
+        res.status(409).json({ message: "Username already taken" });
+        return;
+      }
+    }
+
+    try {
+      const updated = await storage.updateUser(userId, allowed);
+      if (!updated) {
+        res.status(404).json({ message: "User not found" });
+        return;
+      }
+      // Don't echo the password back to the client.
+      const { password, ...safe } = updated as any;
+      res.json(safe);
+    } catch (err: any) {
+      res.status(400).json({ message: err?.message || "Failed to update user" });
+    }
   });
 
   app.get("/api/judges", async (req, res) => {
@@ -1148,11 +1216,13 @@ Always be encouraging and focus on growth areas rather than criticism.`;
     }
 
     try {
+      const setupToken = generateSetupToken();
       const authorizedEmail = await storage.createAuthorizedEmail({
         email: email.toLowerCase().trim(),
         role,
         name,
         eventIds: normalizedEventIds.length > 0 ? normalizedEventIds : null,
+        setupToken,
         createdBy: userId,
       });
 
@@ -1169,6 +1239,7 @@ Always be encouraging and focus on growth areas rather than criticism.`;
         role: role as "admin" | "manager" | "judge",
         inviterName: inviter?.name,
         events: assignedEvents.map(e => ({ name: e.name, date: e.date, location: e.location })),
+        setupToken,
       });
 
       res.status(201).json({ ...authorizedEmail, emailSent: emailResult.ok, emailError: emailResult.error });
@@ -1203,12 +1274,23 @@ Always be encouraging and focus on growth areas rather than criticism.`;
     const assignedEvents = target.eventIds && target.eventIds.length > 0
       ? (await storage.getEvents()).filter(e => target.eventIds!.includes(e.id))
       : [];
+
+    // If the original token has already been consumed (the user finished setup
+    // and then asks for a new invite), or never had one (legacy rows), mint a
+    // new one so the resent email contains a working setup link.
+    let setupToken = target.setupToken || null;
+    if (!setupToken) {
+      setupToken = generateSetupToken();
+      await storage.updateAuthorizedEmailSetupToken(target.id, setupToken);
+    }
+
     const result = await sendInvitationEmail({
       to: target.email,
       recipientName: target.name,
       role: target.role as "admin" | "manager" | "judge",
       inviterName: inviter?.name,
       events: assignedEvents.map(e => ({ name: e.name, date: e.date, location: e.location })),
+      setupToken,
     });
 
     if (result.ok) {
@@ -1243,6 +1325,132 @@ Always be encouraging and focus on growth areas rather than criticism.`;
     
     await storage.deleteAuthorizedEmail(req.params.id);
     res.status(204).send();
+  });
+
+  // ===== Invitation Setup Flow =====
+  // The invitation email contains a one-time link of the form
+  //   https://<domain>/setup?token=<setupToken>
+  // The /setup page calls these endpoints to (a) verify the token and show
+  // the invitee their pre-assigned email + role, and (b) submit a chosen
+  // username + password. Once consumed, the token is cleared so the link
+  // can't be reused.
+
+  app.get("/api/setup/:token", async (req, res) => {
+    const token = req.params.token;
+    if (!token || token.length < 8) {
+      res.status(400).json({ message: "Invalid token" });
+      return;
+    }
+    const invite = await storage.getAuthorizedEmailByToken(token);
+    if (!invite) {
+      res.status(404).json({ message: "This invitation link is invalid or has already been used." });
+      return;
+    }
+    res.json({
+      email: invite.email,
+      role: invite.role,
+      name: invite.name,
+    });
+  });
+
+  app.post("/api/setup/:token", async (req, res) => {
+    const token = req.params.token;
+    if (!token || token.length < 8) {
+      res.status(400).json({ message: "Invalid token" });
+      return;
+    }
+
+    const invite = await storage.getAuthorizedEmailByToken(token);
+    if (!invite) {
+      res.status(404).json({ message: "This invitation link is invalid or has already been used." });
+      return;
+    }
+
+    const { username, password, name } = req.body || {};
+
+    if (typeof username !== "string" || username.trim().length < 3) {
+      res.status(400).json({ message: "Username must be at least 3 characters" });
+      return;
+    }
+    if (typeof password !== "string" || password.length < 6) {
+      res.status(400).json({ message: "Password must be at least 6 characters" });
+      return;
+    }
+    const cleanUsername = username.trim();
+    const cleanName =
+      typeof name === "string" && name.trim() ? name.trim() : invite.name || invite.email;
+
+    // Reject conflicting usernames before any DB write.
+    const conflict = await storage.getUserByUsername(cleanUsername);
+    if (conflict) {
+      res.status(409).json({ message: "Username already taken" });
+      return;
+    }
+
+    try {
+      // If the invitee already exists in users (e.g. they previously logged in
+      // with Google before completing setup), update that row instead of
+      // creating a duplicate. This keeps event assignments and oauth links
+      // intact.
+      const existingByEmail = await storage.getUserByEmail(invite.email);
+
+      let user;
+      if (existingByEmail) {
+        user = await storage.updateUser(existingByEmail.id, {
+          username: cleanUsername,
+          password,
+          name: cleanName,
+          email: invite.email,
+          role: invite.role,
+        });
+      } else {
+        user = await storage.createUser({
+          username: cleanUsername,
+          password,
+          name: cleanName,
+          email: invite.email,
+          role: invite.role,
+        });
+
+        // Apply event assignments that came from the invitation row.
+        const assignedEventIds = invite.eventIds || [];
+        if (assignedEventIds.length > 0 && (invite.role === "judge" || invite.role === "manager")) {
+          const allEvents = await storage.getEvents();
+          for (const ev of allEvents) {
+            if (!assignedEventIds.includes(ev.id)) continue;
+            if (invite.role === "manager") {
+              if (!ev.managerId) {
+                await storage.updateEvent(ev.id, { managerId: user!.id });
+              }
+            } else {
+              const current = ev.judgeIds || [];
+              if (!current.includes(user!.id)) {
+                await storage.updateEventJudges(ev.id, [...current, user!.id]);
+              }
+            }
+          }
+        }
+      }
+
+      // Mark the token consumed so the link can't be reused.
+      await storage.markAuthorizedEmailSetupComplete(invite.id);
+
+      // Auto-log the user in so the form lands them straight in the dashboard.
+      req.logIn(user as any, (err) => {
+        if (err) {
+          res.status(201).json({
+            ok: true,
+            mustLogin: true,
+            message: "Account created. Please log in.",
+          });
+          return;
+        }
+        const { password: _pw, ...safeUser } = user as any;
+        res.status(201).json({ ok: true, user: safeUser });
+      });
+    } catch (err: any) {
+      res.status(400).json({ message: err?.message || "Failed to create account" });
+    }
   });
 
   // Seed Data

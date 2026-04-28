@@ -14,6 +14,13 @@ interface InvitationParams {
   role: Role;
   inviterName?: string | null;
   events?: EventSummary[];
+  /**
+   * One-time setup token for the self-onboarding link. When present, the
+   * email shows a primary CTA that takes the invitee to /setup?token=...
+   * where they pick their own username + password. The Google login option
+   * is still shown as a secondary path.
+   */
+  setupToken?: string | null;
 }
 
 function formatEventDate(date: Date | string | null): string {
@@ -64,8 +71,9 @@ function buildHtml(params: {
   appUrl: string;
   email: string;
   events: EventSummary[];
+  setupUrl: string | null;
 }): string {
-  const { recipientName, role, inviterName, appUrl, email, events } = params;
+  const { recipientName, role, inviterName, appUrl, email, events, setupUrl } = params;
   const roleHe = ROLE_LABELS_HE[role];
   const roleEn = ROLE_LABELS_EN[role];
   const descHe = ROLE_DESCRIPTIONS_HE[role];
@@ -129,12 +137,21 @@ function buildHtml(params: {
             </td>
           </tr>
 
-          <!-- CTA Button -->
+          <!-- CTA Buttons -->
           <tr>
             <td align="center" style="padding:0 36px 20px 36px;">
+              ${setupUrl ? `
+              <a href="${setupUrl}" style="display:inline-block;padding:16px 48px;background:linear-gradient(135deg,#06b6d4 0%,#3b82f6 100%);color:#ffffff;text-decoration:none;font-weight:700;font-size:16px;border-radius:12px;box-shadow:0 4px 20px rgba(6,182,212,0.3);">
+                הגדרת חשבון ←
+              </a>
+              <div style="margin:14px 0 0 0;">
+                <a href="${appUrl}/login" style="color:#94a3b8;text-decoration:underline;font-size:13px;">או היכנס עם חשבון Google</a>
+              </div>
+              ` : `
               <a href="${appUrl}/login" style="display:inline-block;padding:16px 48px;background:linear-gradient(135deg,#06b6d4 0%,#3b82f6 100%);color:#ffffff;text-decoration:none;font-weight:700;font-size:16px;border-radius:12px;box-shadow:0 4px 20px rgba(6,182,212,0.3);">
                 כניסה למערכת ←
               </a>
+              `}
             </td>
           </tr>
 
@@ -144,11 +161,20 @@ function buildHtml(params: {
               <p style="margin:0 0 8px 0;">
                 <strong style="color:#cbd5e1;">איך מתחברים:</strong>
               </p>
+              ${setupUrl ? `
+              <ol style="margin:0;padding-right:20px;">
+                <li>לחץ על "הגדרת חשבון" למעלה</li>
+                <li>בחר שם משתמש וסיסמה משלך</li>
+                <li>בכניסות הבאות תוכל להתחבר עם שם המשתמש והסיסמה, או לחלופין עם חשבון Google של <span style="color:#06b6d4;font-weight:600;">${escapeHtml(email)}</span></li>
+              </ol>
+              <p style="margin:10px 0 0 0;color:#64748b;font-size:12px;">קישור הגדרת החשבון תקף לשימוש אחד בלבד.</p>
+              ` : `
               <ol style="margin:0;padding-right:20px;">
                 <li>לחץ על הכפתור למעלה</li>
                 <li>בחר באופציה "Sign in with Google"</li>
                 <li>התחבר עם חשבון הגוגל <span style="color:#06b6d4;font-weight:600;">${escapeHtml(email)}</span></li>
               </ol>
+              `}
             </td>
           </tr>
 
@@ -194,7 +220,10 @@ function buildHtml(params: {
                 </div>
               </div>` : ""}
               <p style="margin:0 0 8px 0;color:#cbd5e1;font-size:13px;">
-                <strong>How to sign in:</strong> Click the button above and choose "Sign in with Google" using this email address.
+                <strong>How to sign in:</strong>
+                ${setupUrl
+                  ? ` Click "Set up account" above to choose your own username and password. Afterwards you can sign in with those credentials, or alternatively with your Google account (${escapeHtml(email)}). The setup link is single-use.`
+                  : ` Click the button above and choose "Sign in with Google" using this email address.`}
               </p>
             </td>
           </tr>
@@ -226,6 +255,7 @@ function buildText(params: {
   appUrl: string;
   email: string;
   events: EventSummary[];
+  setupUrl: string | null;
 }): string {
   const roleHe = ROLE_LABELS_HE[params.role];
   const roleEn = ROLE_LABELS_EN[params.role];
@@ -240,16 +270,20 @@ function buildText(params: {
         .join("\n")}\n`
     : "";
 
+  const setupHe = params.setupUrl
+    ? `\nכדי להגדיר חשבון:\n1. לך אל: ${params.setupUrl}\n2. בחר שם משתמש וסיסמה משלך\n3. בכניסות הבאות תוכל להתחבר עם הפרטים האלה (או לחלופין עם חשבון Google של ${params.email})\n\nאו אם אתה מעדיף - היכנס ישירות עם Google מ-${params.appUrl}/login`
+    : `\nכדי להתחבר:\n1. לך אל: ${params.appUrl}/login\n2. לחץ "Sign in with Google"\n3. התחבר עם חשבון הגוגל ${params.email}`;
+
+  const setupEn = params.setupUrl
+    ? `\nTo set up your account:\n1. Visit: ${params.setupUrl}\n2. Choose your own username and password\n3. From now on you can sign in with those credentials (or alternatively with your Google account ${params.email})\n\nOr if you prefer, sign in directly with Google from ${params.appUrl}/login`
+    : `\nTo sign in:\n1. Go to: ${params.appUrl}/login\n2. Click "Sign in with Google"\n3. Sign in with your Google account: ${params.email}`;
+
   return `שלום ${params.recipientName},
 
 הוזמנת על ידי ${params.inviterName} להצטרף ל-Orbit AI בתפקיד: ${roleHe}.
 
 ${ROLE_DESCRIPTIONS_HE[params.role]}
-${eventsHe}
-כדי להתחבר:
-1. לך אל: ${params.appUrl}/login
-2. לחץ "Sign in with Google"
-3. התחבר עם חשבון הגוגל ${params.email}
+${eventsHe}${setupHe}
 
 ---
 
@@ -258,11 +292,7 @@ Hello ${params.recipientName},
 You've been invited by ${params.inviterName} to join Orbit AI as: ${roleEn}.
 
 ${ROLE_DESCRIPTIONS_EN[params.role]}
-${eventsEn}
-To sign in:
-1. Go to: ${params.appUrl}/login
-2. Click "Sign in with Google"
-3. Sign in with your Google account: ${params.email}
+${eventsEn}${setupEn}
 
 ---
 Orbit AI`;
@@ -311,6 +341,13 @@ export async function sendInvitationEmail(
 
   const eventsList = params.events || [];
 
+  // Build the one-time setup link if a token was supplied. The /setup page
+  // on the frontend reads ?token= from the URL and exchanges it for the
+  // pre-approved email + role via /api/setup/:token.
+  const setupUrl = params.setupToken
+    ? `${appUrl}/setup?token=${encodeURIComponent(params.setupToken)}`
+    : null;
+
   const html = buildHtml({
     recipientName,
     role: params.role,
@@ -318,6 +355,7 @@ export async function sendInvitationEmail(
     appUrl,
     email: params.to,
     events: eventsList,
+    setupUrl,
   });
 
   const text = buildText({
@@ -327,6 +365,7 @@ export async function sendInvitationEmail(
     appUrl,
     email: params.to,
     events: eventsList,
+    setupUrl,
   });
 
   try {

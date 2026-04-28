@@ -37,6 +37,12 @@ export const authorizedEmails = pgTable("authorized_emails", {
   role: varchar("role").notNull(), // "admin", "manager", or "judge"
   name: varchar("name"), // Optional display name
   eventIds: integer("event_ids").array(), // Events this user should be assigned to after sign-up
+  // Single-use token that lets the invitee set their own username + password
+  // via the /setup page. Cleared once they complete setup. While the token is
+  // present the invitee can ALSO log in via Google as before - the setup link
+  // is just an alternative for users who prefer username/password auth.
+  setupToken: varchar("setup_token"),
+  setupCompletedAt: timestamp("setup_completed_at"),
   createdAt: timestamp("created_at").defaultNow(),
   createdBy: integer("created_by"), // User ID who added this email
 });

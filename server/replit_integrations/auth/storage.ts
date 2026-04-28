@@ -64,21 +64,19 @@ class AuthStorage implements IAuthStorage {
     const existing = await this.getUser(userData.id!);
 
     if (existing) {
-      // Update existing OAuth account
-      const [account] = await db
-        .update(oauthAccounts)
-        .set({ ...userData, updatedAt: new Date() })
-        .where(eq(oauthAccounts.id, userData.id!))
-        .returning();
-
-      // Back-fill: if the linked app user still has an ugly "oauth_..." username
-      // (from before we started generating friendly names), rename it now.
-      if (account.linkedUserId) {
+      // Verify the linked app user still exists. If an admin deleted the user
+      // row directly without cleaning up oauth_accounts, the row here would be
+      // an orphan and serializeUser would later 401. Drop the orphan and let
+      // the "new account" flow below recreate everything from authorized_emails.
+      let linkedUserAlive = false;
+      if (existing.linkedUserId) {
         const [linkedUser] = await db
           .select()
           .from(users)
-          .where(eq(users.id, account.linkedUserId));
+          .where(eq(users.id, existing.linkedUserId));
+        linkedUserAlive = Boolean(linkedUser);
         if (linkedUser && linkedUser.username.startsWith("oauth_")) {
+          // Back-fill: rename ugly legacy "oauth_..." usernames to a friendly form.
           const displayName =
             [userData.firstName, userData.lastName].filter(Boolean).join(" ") ||
             linkedUser.name ||
@@ -87,11 +85,9 @@ class AuthStorage implements IAuthStorage {
           const base = buildBaseUsername(displayName, userData.email || null);
           const newUsername = await ensureUniqueUsername(base);
           const updates: Partial<typeof users.$inferInsert> = { username: newUsername };
-          // Also fix the name if the existing one is blank/placeholder
           if (!linkedUser.name || linkedUser.name.toLowerCase() === "user") {
             updates.name = displayName;
           }
-          // And backfill the email if missing
           if (!linkedUser.email && userData.email) {
             updates.email = userData.email.toLowerCase().trim();
           }
@@ -102,9 +98,23 @@ class AuthStorage implements IAuthStorage {
         }
       }
 
-      return account;
+      if (linkedUserAlive) {
+        const [account] = await db
+          .update(oauthAccounts)
+          .set({ ...userData, updatedAt: new Date() })
+          .where(eq(oauthAccounts.id, userData.id!))
+          .returning();
+        return account;
+      }
+
+      // Orphan oauth_accounts row - drop it and continue to the "new account"
+      // creation flow below.
+      await db.delete(oauthAccounts).where(eq(oauthAccounts.id, userData.id!));
+      console.log(
+        `[Auth] Dropped orphan oauth_accounts row for ${userData.email || userData.id} (linked user no longer exists)`,
+      );
     }
-    
+
     // New OAuth account - create app user and link it
     const displayName =
       [userData.firstName, userData.lastName].filter(Boolean).join(" ") ||

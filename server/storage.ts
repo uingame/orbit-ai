@@ -4,13 +4,14 @@ import {
   type InsertUser, type InsertEvent, type InsertStation, type InsertTeam, type InsertScheduleSlot, type InsertScore, type InsertNotification, type InsertAiFeedbackSession, type InsertAiFeedbackMessage,
   type User, type Event, type Station, type Team, type ScheduleSlot, type Score, type Notification, type AiFeedbackSession, type AiFeedbackMessage
 } from "@shared/schema";
-import { authorizedEmails, type AuthorizedEmail, type InsertAuthorizedEmail } from "@shared/models/auth";
-import { eq, and, inArray } from "drizzle-orm";
+import { authorizedEmails, oauthAccounts, type AuthorizedEmail, type InsertAuthorizedEmail } from "@shared/models/auth";
+import { eq, and, inArray, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User/Auth
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(userId: number, data: Partial<InsertUser>): Promise<User | undefined>;
   deleteUser(userId: number): Promise<void>;
@@ -74,7 +75,10 @@ export interface IStorage {
   getAuthorizedEmails(): Promise<AuthorizedEmail[]>;
   getAuthorizedEmailById(id: string): Promise<AuthorizedEmail | undefined>;
   getAuthorizedEmailByEmail(email: string): Promise<AuthorizedEmail | undefined>;
+  getAuthorizedEmailByToken(token: string): Promise<AuthorizedEmail | undefined>;
   createAuthorizedEmail(data: InsertAuthorizedEmail): Promise<AuthorizedEmail>;
+  updateAuthorizedEmailSetupToken(id: string, token: string | null): Promise<void>;
+  markAuthorizedEmailSetupComplete(id: string): Promise<void>;
   deleteAuthorizedEmail(id: string): Promise<void>;
 }
 
@@ -90,6 +94,12 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const normalized = email.toLowerCase().trim();
+    const [user] = await db.select().from(users).where(eq(users.email, normalized));
+    return user;
+  }
+
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db.insert(users).values(insertUser).returning();
     return user;
@@ -101,6 +111,51 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(userId: number): Promise<void> {
+    // Comprehensive cleanup so we don't leave orphan rows that block future
+    // re-creation of the same user (e.g. via Google OAuth).
+    //
+    // 1. Look up the user (we'll need their email to clear the matching
+    //    authorized_emails row).
+    const [existing] = await db.select().from(users).where(eq(users.id, userId));
+
+    // 2. Remove the linked OAuth account row (this is the row that, if left
+    //    behind, would cause "401 Unauthorized" on the user's next Google
+    //    sign-in because Passport tries to load a deleted users.id).
+    await db.delete(oauthAccounts).where(eq(oauthAccounts.linkedUserId, userId));
+
+    // 3. Remove the matching authorized_emails entry. Without this, the user
+    //    would still appear "invited" but have no row in users - confusing.
+    if (existing?.email) {
+      await db
+        .delete(authorizedEmails)
+        .where(eq(authorizedEmails.email, existing.email.toLowerCase().trim()));
+    }
+
+    // 4. Detach from events: clear manager_id where this user is the manager,
+    //    and remove from judge_ids[] arrays everywhere.
+    await db
+      .update(events)
+      .set({ managerId: null })
+      .where(eq(events.managerId, userId));
+    await db.execute(
+      sql`UPDATE events SET judge_ids = array_remove(judge_ids, ${userId}) WHERE ${userId} = ANY(judge_ids)`
+    );
+
+    // 5. Detach from schedule_slots: clear captain_judge_id and remove from
+    //    judge_ids[] arrays.
+    await db
+      .update(scheduleSlots)
+      .set({ captainJudgeId: null })
+      .where(eq(scheduleSlots.captainJudgeId, userId));
+    await db.execute(
+      sql`UPDATE schedule_slots SET judge_ids = array_remove(judge_ids, ${userId}) WHERE ${userId} = ANY(judge_ids)`
+    );
+
+    // 6. Delete personal notifications for this judge (no historical value).
+    await db.delete(notifications).where(eq(notifications.judgeId, userId));
+
+    // 7. Finally, delete the user row itself. Scores and AI feedback sessions
+    //    are intentionally preserved for historical/audit purposes.
     await db.delete(users).where(eq(users.id, userId));
   }
 
@@ -435,9 +490,30 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  async getAuthorizedEmailByToken(token: string): Promise<AuthorizedEmail | undefined> {
+    const [result] = await db.select().from(authorizedEmails).where(eq(authorizedEmails.setupToken, token));
+    return result;
+  }
+
   async createAuthorizedEmail(data: InsertAuthorizedEmail): Promise<AuthorizedEmail> {
     const [newEmail] = await db.insert(authorizedEmails).values(data).returning();
     return newEmail;
+  }
+
+  async updateAuthorizedEmailSetupToken(id: string, token: string | null): Promise<void> {
+    await db
+      .update(authorizedEmails)
+      .set({ setupToken: token })
+      .where(eq(authorizedEmails.id, id));
+  }
+
+  async markAuthorizedEmailSetupComplete(id: string): Promise<void> {
+    // Clear the token (one-shot) and stamp completion time so we have an audit
+    // trail for which invitations were used to self-onboard vs Google OAuth.
+    await db
+      .update(authorizedEmails)
+      .set({ setupToken: null, setupCompletedAt: new Date() })
+      .where(eq(authorizedEmails.id, id));
   }
 
   async deleteAuthorizedEmail(id: string): Promise<void> {

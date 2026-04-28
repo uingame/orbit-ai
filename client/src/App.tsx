@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/login";
+import Setup from "@/pages/setup";
 import AdminDashboard from "@/pages/admin-dashboard";
 import JudgeDashboard from "@/pages/judge-dashboard";
 import ManagerDashboard from "@/pages/manager-dashboard";
@@ -45,7 +46,8 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={Login} />
-      
+      <Route path="/setup" component={Setup} />
+
       <Route path="/admin/dashboard">
         {() => <ProtectedRoute component={AdminDashboard} role="admin" />}
       </Route>
