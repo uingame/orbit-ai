@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Clock, MapPin, Bot, Bell, Check, ChevronDown, Send, Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -94,7 +95,9 @@ export default function JudgeDashboard() {
 
 function JudgeEventView({ event, userId }: { event: Event, userId: number }) {
   const queryClient = useQueryClient();
-  
+  const { toast } = useToast();
+  const seenIdsRef = useRef<Set<number> | null>(null);
+
   // Use judge-scoped endpoints - only get data assigned to this judge
   const { data: mySlots = [], isLoading: slotsLoading } = useQuery<ScheduleSlot[]>({
     queryKey: ["/api/judge/events", event.id, "slots"],
@@ -139,6 +142,20 @@ function JudgeEventView({ event, userId }: { event: Event, userId: number }) {
   });
 
   const unreadNotifications = notifications.filter((n: Notification) => !n.isRead);
+
+  useEffect(() => {
+    if (seenIdsRef.current === null) {
+      seenIdsRef.current = new Set(notifications.map((n) => n.id));
+      return;
+    }
+    const seen = seenIdsRef.current;
+    notifications
+      .filter((n) => !n.isRead && !seen.has(n.id))
+      .forEach((n) => {
+        toast({ title: "הודעה חדשה", description: n.message });
+        seen.add(n.id);
+      });
+  }, [notifications, toast]);
 
   const markAsReadMutation = useMutation({
     mutationFn: async (notificationId: number) => {

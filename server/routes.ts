@@ -1033,59 +1033,16 @@ Always be encouraging and focus on growth areas rather than criticism.`;
 
   // === Notifications ===
   app.post("/api/notifications/send", async (req, res) => {
-    // Only admins/managers can send notifications
     if (req.isAuthenticated() && (req.user as any)?.role === "judge") {
-      res.status(403).json({ message: "Judges cannot send notifications" });
-      return;
+      return res.status(403).json({ message: "Judges cannot send notifications" });
     }
     const { judgeId, message } = req.body;
     const judge = await storage.getUser(judgeId);
     if (!judge) {
       return res.status(404).json({ message: "Judge not found" });
     }
-    
-    // Always store notification in database for in-app display
     const notification = await storage.createNotification({ judgeId, message });
-    
-    // Check for Twilio credentials
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const fromNumber = process.env.TWILIO_PHONE_NUMBER;
-    
-    if (!accountSid || !authToken || !fromNumber) {
-      // Log the notification attempt (SMS not configured)
-      console.log(`[Notification] SMS not configured. Would send to ${judge.phone}: "${message}"`);
-      return res.json({ 
-        success: true, 
-        method: "in-app",
-        message: "Notification saved (SMS not configured)",
-        notification
-      });
-    }
-    
-    // If Twilio is configured, also send SMS
-    if (!judge.phone) {
-      return res.json({ 
-        success: true, 
-        method: "in-app",
-        message: "Notification saved (no phone number for SMS)",
-        notification
-      });
-    }
-    
-    try {
-      const twilio = await import('twilio');
-      const client = twilio.default(accountSid, authToken);
-      await client.messages.create({
-        body: message,
-        from: fromNumber,
-        to: judge.phone,
-      });
-      res.json({ success: true, method: "sms+in-app", message: "SMS sent and notification saved", notification });
-    } catch (error: any) {
-      console.error("Twilio error:", error);
-      res.json({ success: true, method: "in-app", message: "Notification saved (SMS failed)", notification });
-    }
+    res.json({ success: true, method: "in-app", message: "Notification saved", notification });
   });
 
   app.get("/api/notifications", async (req, res) => {
